@@ -3,6 +3,7 @@ An Aegisub automation for karaoke subtitle making
 --------------------------------------------------------------------
 Based on Aegisub automation and written in Lua, Timeline Lullamoon is a tool for more convenient karaoke subtitle making. 
 More detailed descriptions are Chinese.
+小巧精悍的卡拉OK制作辅助脚本
 --------------------------------------------------------------------
 Timeline Lullamoon “时间轴魔术师”是一份基于字幕软件Aegisub自动化工具的Lua脚本。它具有多项功能，可以有效提高卡拉OK字幕制作的效率。
 现版本具有如下功能：
