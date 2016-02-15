@@ -28,8 +28,6 @@ script_version = "0.49"
 
 tr = aegisub.gettext
 
-include("unicode.lua")
-
 UI_conf = {
 	--[[
 	main_dialogs = {
@@ -162,36 +160,17 @@ UI_conf = {
 	},
 }
 
+--[[
 function main(mode, subs, sel)
 	if mode == "kara_parse_double" then
-		showdialog(subs, sel, 'double_dialogs', 'double_buttons', 'double_commands')
+		show_dialog(subs, sel, 'double_dialogs', 'double_buttons', 'double_commands')
 	elseif mode == "kara_swift" then
-		showdialog(subs, sel, 'swift_dialogs', 'swift_buttons', 'swift_commands')
+		show_dialog(subs, sel, 'swift_dialogs', 'swift_buttons', 'swift_commands')
 	end
 end
 
-
-function showdialog(subs, sel, dconf, bconf, cconf, info)
-	local button
-	local Ud = clone(UI_conf[dconf])
-	local Ub = clone(UI_conf[bconf])
-	local Uc = clone(UI_conf[cconf])
-	if(info) then 
-		Ud['info']['label'] = info
-		info = ''
-	end
-	button, config = aegisub.dialog.display(Ud,Ub)
-	for i, c in pairs(Uc) do
-		if button == Ub[i] then
-			c(subs,sel,config)
-			break
-		end
-	end
-end
-
---[[
 function entry(subs, sel)
-	showdialog(subs, sel, 'main_dialogs', 'main_buttons', 'main_commands', '')
+	show_dialog(subs, sel, 'main_dialogs', 'main_buttons', 'main_commands', '')
 end
 --]]
 
@@ -254,11 +233,14 @@ function kara_parse_double(subs, sel, config)
 end
 
 function kara_parse_wchar(subs, sel, config)--宽字符自动区隔音节
+	local unicode = require 'aegisub.unicode'
 	local s = {}
-	read_syllables(subs, sel)
+	local TLSubs = read_syllables(subs, sel)
 	--write_syllables(subs, sel, tp)
-	for i = 1, #TLL_syllables do
-		local subp = TLL_syllables[i]
+	aegisub.progress.task("Processing...")
+	aegisub.progress.set(0)
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i]
 		if #subp["syllables"] == 1 and subp["syllables"][1].duration == 0 then--只有在没有音节存在时才执行
 			local sw0 = ""
 			local sw = {}
@@ -286,36 +268,37 @@ function kara_parse_wchar(subs, sel, config)--宽字符自动区隔音节
 			end
 			local interval = math.floor((subp.end_time - subp.start_time) / #sw)--计算平均间隔时间
 			for k,subsw in pairs(sw) do			--写入全局函数
-				TLL_syllables[i]["syllables"][k] = {
+				TLSubs[i]["syllables"][k] = {
 					duration = interval,
 					tag = config.tag,
 					text = subsw
 				}
 			end
 		end
+		aegisub.progress.set(1 / #TLSubs)
 	end
-	write_syllables(subs, sel)
+	write_syllables(subs, sel, TLSubs)
 end
 
 function kara_strip_tags(subs, sel, config)--去除卡拉OK标签但是维持原本的start_time和end_time
-	read_syllables(subs, sel)
-	for i = 1, #TLL_syllables do
-		local subp = TLL_syllables[i]
+	local TLSubs = read_syllables(subs, sel)
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i]
 		local syls = subp["syllables"]
 		if syls[#syls].duration > 20 and syls[#syls].text == '' then --先判断尾部，认为时间小于等于20ms的都是占位符不处理
 			subp.end_time = subp.end_time - syls[#syls].duration
-			table.remove(TLL_syllables[i]["syllables"],#syls)
+			table.remove(TLSubs[i]["syllables"],#syls)
 		end
 		if syls[1].duration > 0 and syls[1].text == '' then --再判断头部，避免误修改索引
 			subp.start_time = subp.start_time + syls[1].duration
-			table.remove(TLL_syllables[i]["syllables"],1)
+			table.remove(TLSubs[i]["syllables"],1)
 		end
 		if config.allstrip then --清除剩余所有卡拉OK标签但是不修改时间
 			local syls_temp = ""
 			for j=1, #syls do
 				syls_temp = syls_temp..syls[j].text
 			end
-			TLL_syllables[i]["syllables"] = {
+			TLSubs[i]["syllables"] = {
 				{
 					tag = "\\kf",
 					duration = 0,
@@ -324,7 +307,7 @@ function kara_strip_tags(subs, sel, config)--去除卡拉OK标签但是维持原
 			}
 		end
 	end
-	write_syllables(subs, sel)
+	write_syllables(subs, sel, TLSubs)
 end
 
 function kara_swift(subs, sel, tp)
@@ -366,30 +349,153 @@ function kara_swift(subs, sel, tp)
 	end
 end
 
+function timeline_org_prepare(subs, sel)
+	local styles = {}
+	local s0 = ""
+	local changes = 0
+	for i = 1, #sel do
+		local subp = subs[sel[i]]
+		s = subp.style
+		if(not table_search(styles, s)) then
+			table.insert(styles, s)
+		end
+		if s ~= s0 then
+			changes = changes + 1
+		end
+		s0 = s
+	end
+	return styles, changes
+end
 
-function read_syllables(subs, sel, tp)--读音节函数：从台词文本读取每行以及每个音节的数据，使用parse_karaoke_data()函数，生成的音节数组为全局数组TLL_syllables
-	TLL_syllables = {}
+--TODO: 设置行间关系，分同步和接续两种
+function set_timeline_bond(subs, sel)
+end
+
+--将所有行的起始和结束时间写入effect列
+function write_timeline_times(subs, sel)
+	local TLSubs = read_syllables(subs, sel)
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i] 
+		local otimeline = {
+			start_time = subp.start_time,
+			end_time = subp.end_time
+		}
+		subp.effect = table_serialize(otimeline)
+	end
+	write_syllables(subs, sel, TLSubs)
+end
+
+--TODO: 将行间关系为同步的行彼此对齐
+function sync_timelines()
+end
+
+--提前或延后起始和结束时间，不改变音节；
+--drt负数为提前，正数为延后；
+--tp1=nil或0为不移动，1为只移动起始，2为只移动结束，3为都移动；
+--tp2=nil或0为不处理冲突，1为不改变前句时间，2为不改变后句时间
+--tp3=nil或0为不修改音节，1为自动添加空音节占位符
+function move_timelines(subs, sel, drt, tp1, tp2, tp3)
+	local TLSubs = read_syllables(subs, sel)
+	if tp1 or tp1 ~= 0 then
+		for i = 1, #TLSubs do--第二轮循环，对时间进行修改
+			local subp = TLSubs[i]
+			if tp1 == 1 or tp1 == 3 then
+				subp.start_time = subp.start_time + drt
+			end
+			if tp1 == 2 or tp1 == 3 then
+				subp.end_time = subp.end_time + drt
+			end
+		end
+	end
+	if tp2 or tp2 ~= 0 then
+		for i = 1, #TLSubs do--第三轮循环，处理冲突
+			
+		end
+	end
+	write_syllables(subs, sel, TLSubs)
+end
+
+--在起始和结束时间不变的前提下，提前或延后音节划分线；drt负数为提前，正数为延后
+function move_syllables(subs, sel, drt, tp)
+	local TLSubs = read_syllables(subs, sel)
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i]
+		local syls = subp["syllables"]
+		local drt1 = drt
+		if drt1 < 0 then
+			for j = 1, #syls do--提前第一次循环
+				local syldrt = syls[j].duration
+				if syldrt + drt1 < 0 then--单音节不够提前的情况下该音节归零，继续提前后一个音节
+					syls[j].duration = 0
+					drt1 = drt1 + syldrt
+				else--单音节足以提前的情况下只需要修改当前音节
+					syls[j].duration = syls[j].duration + drt1
+					drt1 = 0
+					break
+				end				
+			end
+			local subdrt = subp.end_time-subp.start_time
+			local sum = 0
+			for j = 1, #syls do--第二次循环，计算总音节时间，把差值加到最后一个音节
+				sum = sum + syls[j].duration
+			end
+			syls[#syls].duration = syls[#syls].duration + subdrt - sum
+		elseif drt1 > 0 then--延后第一次循环
+			for j = #syls, 1, -1 do
+				local syldrt = syls[j].duration
+				if syldrt - drt1 < 0 then--单音节不够延后的情况下该音节归零，继续延后前一个音节
+					syls[j].duration = 0
+					drt1 = drt1 - syldrt
+				else--单音节足以延后的情况下只需要修改当前音节
+					syls[j].duration = syls[j].duration - drt1
+					drt1 = 0
+					break
+				end		
+			end
+			local subdrt = subp.end_time-subp.start_time
+			local sum = 0
+			for j = 1, #syls do--第二次循环，计算总音节时间，把差值加到第一个音节
+				sum = sum + syls[j].duration
+			end
+			syls[1].duration = syls[1].duration + subdrt - sum
+		end			
+	end
+	write_syllables(subs, sel, TLSubs)
+end
+
+--读音节函数：从台词文本读取每行以及每个音节的数据，使用parse_karaoke_data()函数，返回音节数组
+function read_syllables(subs, sel, tp)
+	local TLSubs = {}
+	aegisub.progress.task("Reading Lines...")
+	aegisub.progress.set(0)
 	for i = 1, #sel do
 		local subp = subs[sel[i]]
 		if subp.text ~= '' and not subp.comment then--空行和注释行不会被读取 
 			local sylp = subs[sel[i]]
-			TLL_syllables[i] = {
+			TLSubs[i] = {
 				start_time = subp.start_time,
 				end_time = subp.end_time,
 				text = subp.text,
+				effect = subp.effect,
 				syllables = {}
 			}
 			aegisub.parse_karaoke_data(sylp)
 			for j = 1, #sylp do
-				TLL_syllables[i]["syllables"][j] = sylp[j]
+				TLSubs[i]["syllables"][j] = sylp[j]
 			end
 		end		
+		aegisub.progress.set(i / #sel)
 	end
+	return TLSubs
 end
 
-function write_syllables(subs, sel, tp)--写音节函数：把全局数组TLL_syllables的内容写回选择的行，同时也会更新TLL_syllables的text属性；tp默认为false，tp为1表示强制写入
-	for i = 1, #TLL_syllables do
-		local sylp = TLL_syllables[i]["syllables"]
+--写音节函数：把全局数组TLSubs的内容写回选择的行，同时也会更新TLSubs的text属性；tp默认为false，tp为1表示强制写入
+function write_syllables(subs, sel, cont, tp)
+	local TLSubs = cont
+	aegisub.progress.task("Writing Lines...")
+	aegisub.progress.set(0)
+	for i = 1, #TLSubs do
+		local sylp = TLSubs[i]["syllables"]
 		local sub = subs[sel[i]]
 		local subp = ""
 		if tp == 1 or not(#sylp == 1 and sylp[1].duration == 0) then
@@ -399,15 +505,92 @@ function write_syllables(subs, sel, tp)--写音节函数：把全局数组TLL_sy
 		else --纯字符行去掉行首的空音节标记
 			subp = sylp[1].text
 		end
-		TLL_syllables[i]["text"] = subp
-		sub.start_time = TLL_syllables[i]["start_time"]
-		sub.end_time = TLL_syllables[i]["end_time"]
-		sub.text = TLL_syllables[i]["text"]
+		TLSubs[i]["text"] = subp
+		sub.start_time = TLSubs[i]["start_time"]
+		sub.end_time = TLSubs[i]["end_time"]
+		sub.text = TLSubs[i]["text"]
+		sub.effect = TLSubs[i]["effect"]
 		subs[sel[i]] = sub
+		aegisub.progress.set(i / #TLSubs)
 	end
 end
 
-function LuaSplit(str,split)  --底层函数：lua版的explode
+--显示对话框的通用函数
+function show_dialog(subs, sel, dconf, bconf, cconf, info)
+	local button
+	local Ud = util.deep_copy(UI_conf[dconf])
+	local Ub = util.deep_copy(UI_conf[bconf])
+	local Uc = util.deep_copy(UI_conf[cconf])
+	local util = require 'aegisub.util'--UI部分需要用到util的深拷贝功能
+	if(info) then 
+		Ud['info']['label'] = info
+		info = ''
+	end
+	button, config = aegisub.dialog.display(Ud,Ub)
+	for i, c in pairs(Uc) do
+		if button == Ub[i] then
+			c(subs,sel,config)
+			break
+		end
+	end
+end
+
+--底层函数：序列化，将表转化为字符串
+function table_serialize(tbl)
+	local str = '{'
+	for k, v in pairs(tbl) do
+		local split = ''
+		if type(k) == 'number' then
+			split = ''
+		elseif type(k) == 'string' then
+			split = '"'
+		end
+		str = str .. '[' .. split .. k ..split ..']='
+		if type(v) == 'number' then
+			str = str .. v .. ',' 
+		elseif type(v) == 'string' then
+			str = str .. '"' .. v .. '",' 
+		elseif type(v) == 'table' then
+			str = str .. table_serialize(v) .. ','--可能存在循环调用，不过一般遇不到吧
+		else
+			str = str .. 'nil,'
+		end
+	end
+	str = string.sub(str,1,-2)  .. '}'
+	return str
+end
+
+--底层函数：反序列化，将字符串转化为表
+--偷懒直接执行，有安全风险，不过谁会对本地脚本过不去？
+function table_unserialize(str)
+	local str = 'local tbl=' .. str .. ' return tbl'
+	local rtn = assert(loadstring(str))()
+  return rtn
+end
+
+--底层函数：返回表的键名
+function table_keys(tbl) 
+	local ks = {}
+	for k, _ in pairs(tbl) do
+		table.insert(ks,k)
+	end
+	return ks
+end
+
+--底层函数：表浅查找
+function table_search(tbl, val) 
+	local pos = nil
+	for k, v in pairs(tbl) do
+		if v == val then
+			pos = k
+			break
+		end
+	end
+	return pos
+end
+
+--底层函数：lua版的explode
+function LuaSplit(str,split)  
     local lcSubStrTab = {}  
     while true do  
         local lcPos = string.find(str,split)  
@@ -422,35 +605,12 @@ function LuaSplit(str,split)  --底层函数：lua版的explode
     return lcSubStrTab  
 end  
 
-function clone(object) --底层函数：复制lua对象
-  local lookup_table = {}
-  local function _copy(object)
-    if type(object) ~= "table" then 
-      return object
-    elseif lookup_table[object] then
-      return lookup_table[object]
-    end
-    local new_table = {}
-    lookup_table[object] = new_table
-    for key, value in pairs(object) do
-      new_table[_copy(key)] = _copy(value)
-    end
-    return setmetatable(new_table, getmetatable(object))
-  end
-  return _copy(object)
-end
-
-function validation(subs, sel)
-	return #sel > 0
-end
-
 function selection_validation(subs, sel)
 	return #sel > 1
 end
 
 function test(subs, sel)
-	read_syllables(subs, sel)
-	write_syllables(subs, sel)
+	write_timeline_times(subs, sel)
 end
 
 --批量载入宏		
@@ -458,25 +618,25 @@ TLL_macros = {
 	{
 		script_name = "TLL - 音节划分",
 		script_description = "自动识别汉字等宽字符并以卡拉OK标签隔断",
-		entry = function(subs, sel) showdialog(subs, sel, 'wchar_dialogs', 'wchar_buttons', 'wchar_commands') end,
+		entry = function(subs, sel) show_dialog(subs, sel, 'wchar_dialogs', 'wchar_buttons', 'wchar_commands') end,
 		validation = false
 	},
 	{
 		script_name = "TLL - 双行字幕",
 		script_description = "创建双行卡拉OK字幕",
-		entry = function(subs,sel,config) main("kara_parse_double", subs, sel) end,
+		entry = function(subs,sel,config) show_dialog(subs, sel, 'double_dialogs', 'double_buttons', 'double_commands') end,
 		validation = selection_validation
 	},
 	{
 		script_name = "TLL - 音节切换",
 		script_description = "生成音节文本或根据音节文本修改字幕",
-		entry = function(subs,sel,config) main("kara_swift", subs, sel) end,
+		entry = function(subs,sel,config) show_dialog(subs, sel, 'swift_dialogs', 'swift_buttons', 'swift_commands') end,
 		validation = false
 	},
 	{
 		script_name = "TLL - 清理占位音节",
 		script_description = "删除字幕前后的占位音节并保证时间点正确",
-		entry = function(subs,sel,config) showdialog(subs, sel, 'strip_dialogs', 'strip_buttons', 'strip_commands') end,
+		entry = function(subs,sel,config) show_dialog(subs, sel, 'strip_dialogs', 'strip_buttons', 'strip_commands') end,
 		validation = false
 	}
 }
@@ -484,4 +644,4 @@ for i = 1, #TLL_macros do
 	aegisub.register_macro(TLL_macros[i]["script_name"], TLL_macros[i]["script_description"], TLL_macros[i]["entry"], TLL_macros[i]["validation"])
 end
 --aegisub.register_macro(script_name.." "..script_version, script_description, entry, validation)
---aegisub.register_macro('1234', '123456', test)
+aegisub.register_macro('1234', '123456', test)
