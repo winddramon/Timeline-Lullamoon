@@ -16,9 +16,8 @@ as the name is changed.
 --]]
 
 --[[
-	
 	Author: Yoshiko_G
-	Special Thanks to: TNBi, DracoRunan
+	Special Thanks to: TNBi, DracoRunan, ruzx007878
 --]]
 
 script_name = "TimeLine Lullamoon"
@@ -139,7 +138,7 @@ UI_conf = {
 	strip_dialogs = {
 		info = {
 			class = "label",
-			x = 0, y = 0, width = 1, height = 1,
+			x = 0, y = 0, width = 5, height = 1,
 			label = "" ,
 		},
 		{
@@ -156,6 +155,36 @@ UI_conf = {
 	strip_buttons = {"OK", "Cancel"},
 	strip_commands = {
 		function(subs,sel,config) kara_strip_tags(subs, sel, config) end,
+		function(subs,sel,config) end,
+	},
+	
+	sylmov_dialogs = {
+		info = {
+			class = "label",
+			x = 0, y = 0, width = 5, height = 1,
+			label = "" ,
+		},
+		{
+			class = "dropdown", name = "tp",
+			x = 0, y = 1, width = 1, height = 1,
+			items = {"提前", "延后"} ,
+			value = "提前",
+		},
+		{
+			class = "intedit", name = "duration",
+			x = 1, y = 1, width = 1, height = 1,
+			hint = "",
+			value = 0, min = 0, max = 20000
+		},
+		{
+			class = "label",
+			x = 1, y = 1, width = 1, height = 1,
+			label = "ms" ,
+		}
+	},
+	sylmov_buttons = {"OK", "Cancel"},
+	sylmov_commands = {
+		function(subs,sel,config) kara_sylmov(subs, sel, config) end,
 		function(subs,sel,config) end,
 	},
 }
@@ -348,30 +377,64 @@ function kara_swift(subs, sel, tp)
 		end
 	end
 end
+--TODO: 行间关系：
+--column-同步列C，H表示列首句，S表示列后句，同标记的后句的起止时间和音节都跟首句对齐
+--row-接续行R，同标记的接续行认为彼此有前后连续关系
+--{"C" = {"no" = 3, "tp" = "H"}, "R" = {"no" = 2}}范例
 
-function timeline_org_prepare(subs, sel)
+--流程：执行—预读样式—预判样式与列的关系表—显示调整窗口—确定后写入effect
+
+--1. 预读样式，计算预判关系表，写入config，显示列调整窗口
+function timeline_org_prepare(subs, sel, step, config)
+	local TLSubs = read_syllables(subs, sel)
+	local styles = timeline_read_styles(subs, sel)
+	local style_keys = table_keys(styles)
+	
+	local headstyle = ""
+	local cnum = 0
+	local style_proc = {}
+	for k, v in pairs(styles) do
+		if v > cnum then
+			headstyle = k--认为出现次数最多并且最靠前的为首句，同时记录次数作为列总数
+			cnum = v
+		end
+		style_proc[k] = 1
+	end
+	--TODO: 从这里断开，先给基于样式的判定窗口，之后再显示句子的确认窗口
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i]
+		local rel = {C = {}}
+		if subp.style == headstyle then
+			rel["C"]["tp"] = "H"
+		else
+			rel["C"]["tp"] = "S"
+		end
+		rel["C"]["no"] = style_proc[subp.style]
+		subp.effect = table_serialize(rel)
+		style_proc[subp.style] = style_proc[subp.style] + 1
+	end
+	write_syllables(subs, sel, TLSubs)
+end
+
+--2. 根据列调整参数修改并写入
+
+--预读样式并计算样式的更替次数
+function timeline_read_styles(subs, sel)
 	local styles = {}
-	local s0 = ""
-	local changes = 0
 	for i = 1, #sel do
 		local subp = subs[sel[i]]
 		s = subp.style
-		if(not table_search(styles, s)) then
-			table.insert(styles, s)
+		if(not styles[s]) then
+			styles[s] = 0
+		else
+			styles[s] = styles[s] + 1
 		end
-		if s ~= s0 then
-			changes = changes + 1
-		end
-		s0 = s
 	end
-	return styles, changes
-end
-
---TODO: 设置行间关系，分同步和接续两种
-function set_timeline_bond(subs, sel)
+	return styles
 end
 
 --将所有行的起始和结束时间写入effect列
+--[[
 function write_timeline_times(subs, sel)
 	local TLSubs = read_syllables(subs, sel)
 	for i = 1, #TLSubs do
@@ -384,10 +447,7 @@ function write_timeline_times(subs, sel)
 	end
 	write_syllables(subs, sel, TLSubs)
 end
-
---TODO: 将行间关系为同步的行彼此对齐
-function sync_timelines()
-end
+--]]
 
 --提前或延后起始和结束时间，不改变音节；
 --drt负数为提前，正数为延后；
@@ -415,87 +475,106 @@ function move_timelines(subs, sel, drt, tp1, tp2, tp3)
 	write_syllables(subs, sel, TLSubs)
 end
 
+--音节移动的壳函数
+function kara_sylmov(subs, sel, config)
+	local drt = 0
+	if config.tp == "提前" then
+		drt = - config.duration
+	elseif config.tp == "延后" then
+		drt = config.duration
+	end
+	move_syllables(subs, sel, drt)
+end
+
 --在起始和结束时间不变的前提下，提前或延后音节划分线；drt负数为提前，正数为延后
 function move_syllables(subs, sel, drt, tp)
 	local TLSubs = read_syllables(subs, sel)
 	for i = 1, #TLSubs do
 		local subp = TLSubs[i]
 		local syls = subp["syllables"]
-		local drt1 = drt
-		if drt1 < 0 then
-			for j = 1, #syls do--提前第一次循环
-				local syldrt = syls[j].duration
-				if syldrt + drt1 < 0 then--单音节不够提前的情况下该音节归零，继续提前后一个音节
-					syls[j].duration = 0
-					drt1 = drt1 + syldrt
-				else--单音节足以提前的情况下只需要修改当前音节
-					syls[j].duration = syls[j].duration + drt1
-					drt1 = 0
-					break
-				end				
-			end
-			local subdrt = subp.end_time-subp.start_time
-			local sum = 0
-			for j = 1, #syls do--第二次循环，计算总音节时间，把差值加到最后一个音节
-				sum = sum + syls[j].duration
-			end
-			syls[#syls].duration = syls[#syls].duration + subdrt - sum
-		elseif drt1 > 0 then--延后第一次循环
-			for j = #syls, 1, -1 do
-				local syldrt = syls[j].duration
-				if syldrt - drt1 < 0 then--单音节不够延后的情况下该音节归零，继续延后前一个音节
-					syls[j].duration = 0
-					drt1 = drt1 - syldrt
-				else--单音节足以延后的情况下只需要修改当前音节
-					syls[j].duration = syls[j].duration - drt1
-					drt1 = 0
-					break
-				end		
-			end
-			local subdrt = subp.end_time-subp.start_time
-			local sum = 0
-			for j = 1, #syls do--第二次循环，计算总音节时间，把差值加到第一个音节
-				sum = sum + syls[j].duration
-			end
-			syls[1].duration = syls[1].duration + subdrt - sum
-		end			
+		if #syls > 1 then
+			local drt1 = drt
+			if drt1 < 0 then
+				for j = 1, #syls do--提前第一次循环
+					local syldrt = syls[j].duration
+					if syldrt + drt1 < 0 then--单音节不够提前的情况下该音节归零，继续提前后一个音节
+						syls[j].duration = 0
+						drt1 = drt1 + syldrt
+					else--单音节足以提前的情况下只需要修改当前音节
+						syls[j].duration = syls[j].duration + drt1
+						drt1 = 0
+						break
+					end				
+				end
+				local subdrt = subp.end_time-subp.start_time
+				local sum = 0
+				for j = 1, #syls do--第二次循环，计算总音节时间，把差值加到最后一个音节
+					sum = sum + syls[j].duration
+				end
+				syls[#syls].duration = syls[#syls].duration + subdrt - sum
+			elseif drt1 > 0 then--延后第一次循环
+				for j = #syls, 1, -1 do
+					local syldrt = syls[j].duration
+					if syldrt - drt1 < 0 then--单音节不够延后的情况下该音节归零，继续延后前一个音节
+						syls[j].duration = 0
+						drt1 = drt1 - syldrt
+					else--单音节足以延后的情况下只需要修改当前音节
+						syls[j].duration = syls[j].duration - drt1
+						drt1 = 0
+						break
+					end		
+				end
+				local subdrt = subp.end_time-subp.start_time
+				local sum = 0
+				for j = 1, #syls do--第二次循环，计算总音节时间，把差值加到第一个音节
+					sum = sum + syls[j].duration
+				end
+				syls[1].duration = syls[1].duration + subdrt - sum
+			end	
+		end		
 	end
 	write_syllables(subs, sel, TLSubs)
 end
 
 --读音节函数：从台词文本读取每行以及每个音节的数据，使用parse_karaoke_data()函数，返回音节数组
 function read_syllables(subs, sel, tp)
-	local TLSubs = {}
+	local sublist = {}
 	aegisub.progress.task("Reading Lines...")
 	aegisub.progress.set(0)
 	for i = 1, #sel do
 		local subp = subs[sel[i]]
 		if subp.text ~= '' and not subp.comment then--空行和注释行不会被读取 
 			local sylp = subs[sel[i]]
-			TLSubs[i] = {
+			sublist[i] = {
 				start_time = subp.start_time,
 				end_time = subp.end_time,
 				text = subp.text,
+				style = subp.style,
 				effect = subp.effect,
 				syllables = {}
 			}
+			if subp.effect then 
+				sublist[i]["rel"] = table_unserialize(subp.effect)--顺便试图序列化行间关系，如果不存在则为nil
+			else
+				sublist[i]["rel"] = nil
+			end
 			aegisub.parse_karaoke_data(sylp)
 			for j = 1, #sylp do
-				TLSubs[i]["syllables"][j] = sylp[j]
+				sublist[i]["syllables"][j] = sylp[j]
 			end
 		end		
 		aegisub.progress.set(i / #sel)
 	end
-	return TLSubs
+	return sublist
 end
 
---写音节函数：把全局数组TLSubs的内容写回选择的行，同时也会更新TLSubs的text属性；tp默认为false，tp为1表示强制写入
+--写音节函数：把音节数据内容写回选择的行，同时也会更新text属性；tp默认为false，tp为1表示强制写入
 function write_syllables(subs, sel, cont, tp)
-	local TLSubs = cont
+	local sublist = cont
 	aegisub.progress.task("Writing Lines...")
 	aegisub.progress.set(0)
-	for i = 1, #TLSubs do
-		local sylp = TLSubs[i]["syllables"]
+	for i = 1, #sublist do
+		local sylp = sublist[i]["syllables"]
 		local sub = subs[sel[i]]
 		local subp = ""
 		if tp == 1 or not(#sylp == 1 and sylp[1].duration == 0) then
@@ -505,23 +584,24 @@ function write_syllables(subs, sel, cont, tp)
 		else --纯字符行去掉行首的空音节标记
 			subp = sylp[1].text
 		end
-		TLSubs[i]["text"] = subp
-		sub.start_time = TLSubs[i]["start_time"]
-		sub.end_time = TLSubs[i]["end_time"]
-		sub.text = TLSubs[i]["text"]
-		sub.effect = TLSubs[i]["effect"]
+		sublist[i]["text"] = subp
+		sub.start_time = sublist[i]["start_time"]
+		sub.end_time = sublist[i]["end_time"]
+		sub.text = sublist[i]["text"]
+		sub.style = sublist[i]["style"]
+		sub.effect = sublist[i]["effect"]
 		subs[sel[i]] = sub
-		aegisub.progress.set(i / #TLSubs)
+		aegisub.progress.set(i / #sublist)
 	end
 end
 
 --显示对话框的通用函数
 function show_dialog(subs, sel, dconf, bconf, cconf, info)
 	local button
+	local util = require 'aegisub.util'--UI部分需要用到util的深拷贝功能
 	local Ud = util.deep_copy(UI_conf[dconf])
 	local Ub = util.deep_copy(UI_conf[bconf])
 	local Uc = util.deep_copy(UI_conf[cconf])
-	local util = require 'aegisub.util'--UI部分需要用到util的深拷贝功能
 	if(info) then 
 		Ud['info']['label'] = info
 		info = ''
@@ -563,9 +643,13 @@ end
 --底层函数：反序列化，将字符串转化为表
 --偷懒直接执行，有安全风险，不过谁会对本地脚本过不去？
 function table_unserialize(str)
-	local str = 'local tbl=' .. str .. ' return tbl'
-	local rtn = assert(loadstring(str))()
-  return rtn
+	local tbl = nil
+	if type(str) == "string" and str ~= "" then
+		local str = 'local tbl=' .. str .. ' return tbl'
+		rst = assert(loadstring(str))()
+		if type(rst) == "table" then tbl = rst end
+	end	
+  return tbl
 end
 
 --底层函数：返回表的键名
@@ -603,22 +687,41 @@ function LuaSplit(str,split)
         str = string.sub(str,lcPos+1,#str)  
     end  
     return lcSubStrTab  
-end  
+end 
+ 
+--[[
+--底层函数：类似php的判否函数
+function !(v)
+	return not v or v == 0 or v == "" or v == {}
+end
+--]]
 
 function selection_validation(subs, sel)
 	return #sel > 1
 end
 
 function test(subs, sel)
-	write_timeline_times(subs, sel)
+	timeline_org_prepare(subs, sel)
 end
 
 --批量载入宏		
 TLL_macros = {
 	{
-		script_name = "TLL - 音节划分",
+		script_name = "TLL - 划分汉字音节",
 		script_description = "自动识别汉字等宽字符并以卡拉OK标签隔断",
 		entry = function(subs, sel) show_dialog(subs, sel, 'wchar_dialogs', 'wchar_buttons', 'wchar_commands') end,
+		validation = false
+	},
+	{
+		script_name = "TLL - 清理占位音节",
+		script_description = "删除字幕前后的占位音节并保证时间点正确",
+		entry = function(subs,sel,config) show_dialog(subs, sel, 'strip_dialogs', 'strip_buttons', 'strip_commands') end,
+		validation = false
+	},
+	{
+		script_name = "TLL - 批量移动音节",
+		script_description = "不改变起止时间，统一移动所选行音节的分隔时间",
+		entry = function(subs,sel,config) show_dialog(subs, sel, 'sylmov_dialogs', 'sylmov_buttons', 'sylmov_commands') end,
 		validation = false
 	},
 	{
@@ -631,12 +734,6 @@ TLL_macros = {
 		script_name = "TLL - 音节切换",
 		script_description = "生成音节文本或根据音节文本修改字幕",
 		entry = function(subs,sel,config) show_dialog(subs, sel, 'swift_dialogs', 'swift_buttons', 'swift_commands') end,
-		validation = false
-	},
-	{
-		script_name = "TLL - 清理占位音节",
-		script_description = "删除字幕前后的占位音节并保证时间点正确",
-		entry = function(subs,sel,config) show_dialog(subs, sel, 'strip_dialogs', 'strip_buttons', 'strip_commands') end,
 		validation = false
 	}
 }
