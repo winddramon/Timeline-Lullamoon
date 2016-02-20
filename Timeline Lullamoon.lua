@@ -1,4 +1,4 @@
-ï»¿--[[
+--[[
            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
                    Version 2, December 2004
 
@@ -21,172 +21,88 @@ as the name is changed.
 --]]
 
 script_name = "TimeLine Lullamoon"
-script_description = "1.ä»¥å¡æ‹‰OKæ ‡ç­¾è‡ªåŠ¨éš”æ–­å®½å­—ç¬¦  2.å°†éš”è¡Œæ­Œè¯é¦–å°¾å¯¹é½ï¼Œå¹¶è‡ªåŠ¨ä¿®æ­£å†²çªçš„æ—¶é—´é—´éš”ï¼Œä»è€ŒæŠŠå•è¡Œå¡æ‹‰OKè½¬åŒ–æˆåŒè¡Œ  3.åœ¨ç‰¹æ•ˆå­—æ®µç”Ÿæˆç”¨ç©ºæ ¼éš”æ–­çš„éŸ³èŠ‚æ–‡æœ¬ï¼Œä¹Ÿå¯ä»¥å°†éŸ³èŠ‚æ–‡æœ¬åè´´å›æ­Œè¯å­—å¹•"
+script_description = "1.ÒÔ¿¨À­OK±êÇ©×Ô¶¯¸ô¶Ï¿í×Ö·û  2.½«¸ôĞĞ¸è´ÊÊ×Î²¶ÔÆë£¬²¢×Ô¶¯ĞŞÕı³åÍ»µÄÊ±¼ä¼ä¸ô£¬´Ó¶ø°Ñµ¥ĞĞ¿¨À­OK×ª»¯³ÉË«ĞĞ  3.ÔÚÌØĞ§×Ö¶ÎÉú³ÉÓÃ¿Õ¸ñ¸ô¶ÏµÄÒô½ÚÎÄ±¾£¬Ò²¿ÉÒÔ½«Òô½ÚÎÄ±¾·´Ìù»Ø¸è´Ê×ÖÄ»"
 script_author = "Yoshiko_G"
 script_version = "0.49"
 
 tr = aegisub.gettext
 
+util = require'aegisub.util'
+
 UI_conf = {
-	--[[
-	main_dialogs = {
-		info = {
-			class = "label",
-			x = 0, y = 0, width = 1, height = 1,
-			label = "è¯·é€‰æ‹©åŠŸèƒ½ï¼š\nWide-Characterï¼šä»¥å®½å­—ç¬¦ï¼ˆå¦‚æ±‰å­—ï¼‰ä¸ºå•ä½åˆ†å‡ºæ­Œè¯éŸ³èŠ‚ï¼›\nDouble-lineï¼šå•è¡Œå¡æ‹‰OKè½¬åŒ–æˆåŒè¡Œã€‚\nSyllaTextsï¼šç”ŸæˆéŸ³èŠ‚æ–‡æœ¬æˆ–æ ¹æ®éŸ³èŠ‚æ–‡æœ¬ä¿®æ”¹å­—å¹•" 
-		}
-	},
-	main_buttons = {'Wide-Character','Double-line','SyllaTexts','Exit'},
-	main_commands = {
-		function(subs,sel,config) kara_parse_wchar(subs, sel) end,
-		function(subs,sel,config) main("kara_parse_double", subs, sel) end,
-		function(subs,sel,config) main("kara_swift", subs, sel) end,
-		function(subs,sel,config) end,
-	},
-	--]]
-	
+	--1,1,1,1,"intedit",value,min,max,"hint"
+	--1,1,1,1,"label","text"
+	--1,1,1,1,"checkbox",true
+	--1,1,1,1,"dropdown","value",{items},"hint"
+			
 	double_dialogs = {
-		info = {
-			class = "label",
-			x = 0, y = 0, width = 3, height = 1,
-			label = "" 
-		},
-		{
-			class = "label",
-			x = 0, y = 1, width = 1, height = 1,
-			label = "é¢„æ˜¾:"
-		},
-		{
-			class = "intedit", name = "timeadv",
-			x = 1, y = 1, width = 1, height = 1,
-			hint = "æ¯å¥æ­Œè¯é¢„å…ˆæ˜¾ç¤ºçš„æ—¶é—´ï¼Œå•ä½ä¸ºæ¯«ç§’",
-			value = 1000, min = 1, max = 20000
-		},
-		{
-			class = "label",
-			x = 2, y = 1, width = 1, height = 1,
-			label = "ms"
-		},
-		{
-			class = "label",
-			x = 0, y = 2, width = 1, height = 1,
-			label = "å»¶å:"
-		},
-		{
-			class = "intedit", name = "timepass",
-			x = 1, y = 2, width = 1, height = 1,
-			hint = "æ¯å¥æ­Œè¯å»¶åæ˜¾ç¤ºçš„æœ€é•¿æ—¶é—´ï¼Œå•ä½ä¸ºæ¯«ç§’",
-			value = 1000, min = 1, max = 20000
-		},
-		{
-			class = "label",
-			x = 2, y = 2, width = 1, height = 1,
-			label = "ms"
-		},
-		{
-			class = "checkbox", name = "fn1",
-			x = 0, y = 3, width = 1, height = 1,
-			value = true
-		},
-		{
-			class = "label",
-			x = 1, y = 3, width = 1, height = 1,
-			label = "è‡ªåŠ¨ä¿®æ­£æ—¶é—´è½´å†²çª" 
-		}
-		
+		info = { 0, 0, 3, 1, "label", label = "" },
+		{ 0, 1, 1, 1, "label", label = "Ô¤ÏÔ:" },
+		{ 1, 1, 1, 1, "intedit", name = "timeadv", hint = "Ã¿¾ä¸è´ÊÔ¤ÏÈÏÔÊ¾µÄÊ±¼ä£¬µ¥Î»ÎªºÁÃë", value = 1000, min = 1, max = 20000 },
+		{ 2, 1, 1, 1, "label", label = "ms" },
+		{ 0, 2, 1, 1, "label", label = "ÑÓºó:" },
+		{ 1, 2, 1, 1, "intedit", name = "timepass", value = 1000, min = 1, max = 20000 },
+		{ 2, 2, 1, 1, "label", label = "ms" },
+		{ 0, 3, 2, 1, "checkbox", name = "fn1", value = true, label = "×Ô¶¯ĞŞÕıÊ±¼äÖá³åÍ»" }
 	},
 	double_buttons = {'Parse!','Cancel'},	
 	double_commands = {
 		function(subs,sel,config) kara_parse_double(subs, sel, config) end,
-		function(subs,sel,config) end
+		function(subs,sel,config) aegisub.cancel() end
 	},
 	
 	swift_dialogs = {
-		info = {
-			class = "label",
-			x = 0, y = 0, width = 1, height = 1,
-			label = "è¯·é€‰æ‹©åŠŸèƒ½ï¼š\nCreateï¼šæ ¹æ®å®é™…å­—å¹•å†…å®¹åœ¨ç‰¹æ•ˆå­—æ®µç”ŸæˆæŒ‰éŸ³èŠ‚åˆ†å‰²çš„æ–‡æœ¬ï¼›\nParseï¼šæ ¹æ®ç‰¹æ•ˆå­—æ®µçš„éŸ³èŠ‚åˆ†å‰²æ–‡æœ¬ä¿®æ”¹å­—å¹•å†…å®¹ã€‚\nCleanï¼šæ¸…é™¤ç‰¹æ•ˆå­—æ®µã€‚" 
-		}
+		info = { 0, 0, 1, 1, "label", label = "ÇëÑ¡Ôñ¹¦ÄÜ£º\nCreate£º¸ù¾İÊµ¼Ê×ÖÄ»ÄÚÈİÔÚÌØĞ§×Ö¶ÎÉú³É°´Òô½Ú·Ö¸îµÄÎÄ±¾£»\nParse£º¸ù¾İÌØĞ§×Ö¶ÎµÄÒô½Ú·Ö¸îÎÄ±¾ĞŞ¸Ä×ÖÄ»ÄÚÈİ¡£\nClean£ºÇå³ıÌØĞ§×Ö¶Î¡£"  }
 	},
 	swift_buttons = {'Create','Parse','Clean','Cancel'},
 	swift_commands = {
 		function(subs,sel,config) kara_swift(subs, sel, 0) end,
 		function(subs,sel,config) kara_swift(subs, sel, 1) end,
 		function(subs,sel,config) kara_swift(subs, sel, 2) end,
-		function(subs,sel,config) end
+		function(subs,sel,config) aegisub.cancel() end
 	},
 	
 	wchar_dialogs = {
-		info = {
-			class = "label",
-			x = 0, y = 0, width = 1, height = 1,
-			label = "æ ‡ç­¾ç±»å‹" ,
-		},
-		{
-			class = "dropdown", name = "tag",
-			x = 1, y = 0, width = 1, height = 1,
-			items = {"\\kf", "\\k", "\\ko"} ,
-			value = "\\kf",
-		}
+		info = { 0, 0, 1, 1, "label", label = "±êÇ©ÀàĞÍ" },
+		{ 1, 0, 1, 1, "dropdown", name = "tag", items = {"\\kf", "\\k", "\\ko"} , value = "\\kf" }
 	},
 	wchar_buttons = {"OK", "Cancel"},
 	wchar_commands = {
 		function(subs,sel,config) kara_parse_wchar(subs, sel, config) end,
-		function(subs,sel,config) end,
+		function(subs,sel,config) aegisub.cancel() end,
 	},
 	
 	strip_dialogs = {
-		info = {
-			class = "label",
-			x = 0, y = 0, width = 5, height = 1,
-			label = "" ,
-		},
-		{
-			class = "checkbox", name = "allstrip",
-			x = 0, y = 1, width = 1, height = 1,
-			value = false
-		},
-		{
-			class = "label",
-			x = 1, y = 1, width = 1, height = 1,
-			label = "æ¸…é™¤æ‰€æœ‰å¡æ‹‰OKéŸ³èŠ‚ç¬¦" ,
-		},
+		info = { 0, 0, 1, 1, "label", label = "" , },
+		{ 0, 1, 1, 1, "checkbox", name = "allstrip", value = false, label = "Çå³ıËùÓĞ¿¨À­OKÒô½Ú·û"  },
 	},
 	strip_buttons = {"OK", "Cancel"},
 	strip_commands = {
 		function(subs,sel,config) kara_strip_tags(subs, sel, config) end,
-		function(subs,sel,config) end,
+		function(subs,sel,config) aegisub.cancel() end,
 	},
 	
 	sylmov_dialogs = {
-		info = {
-			class = "label",
-			x = 0, y = 0, width = 5, height = 1,
-			label = "" ,
-		},
-		{
-			class = "dropdown", name = "tp",
-			x = 0, y = 1, width = 1, height = 1,
-			items = {"æå‰", "å»¶å"} ,
-			value = "æå‰",
-		},
-		{
-			class = "intedit", name = "duration",
-			x = 1, y = 1, width = 1, height = 1,
-			hint = "",
-			value = 0, min = 0, max = 20000
-		},
-		{
-			class = "label",
-			x = 1, y = 1, width = 1, height = 1,
-			label = "ms" ,
-		}
+		info = { 0, 0, 5, 1, "label", label = "" },
+		{ 0, 1, 1, 1, "dropdown", name = "tp", items = {"ÌáÇ°", "ÑÓºó"}, value = "ÌáÇ°" },
+		{ 1, 1, 1, 1, "intedit", name = "duration", hint = "", value = 0, min = 0, max = 20000 },
+		{ 1, 1, 1, 1, "label", label = "ms" }
 	},
 	sylmov_buttons = {"OK", "Cancel"},
 	sylmov_commands = {
 		function(subs,sel,config) kara_sylmov(subs, sel, config) end,
-		function(subs,sel,config) end,
+		function(subs,sel,config) aegisub.cancel() end,
 	},
+	
+	tlorg_ctrl_dialogs = {
+		{ 0, 0, 1, 1, "label", label = "¹Ø¼ü" },
+		{ 1, 0, 1, 1, "label", label = "½ÓĞø±àºÅ" },
+		{ 2, 0, 1, 1, "label", label = "Í¬²½±àºÅ" },
+		{ 3, 0, 1, 1, "label", label = "×ÖÄ»ÑùÊ½" },
+		{ 4, 0, 1, 1, "label", label = "×ÖÄ»ÎÄ±¾" },
+	},
+	tlorg_ctrl_buttons = {"Save", "Refresh",  "Preview", "Auto", "Cancel"},
+	tlorg_ctrl_commands = function(subs,sel,button,config) return button, config end,
 }
 
 --[[
@@ -212,10 +128,10 @@ function kara_parse_double(subs, sel, config)
 	local timeadv = config.timeadv
 	local timepass = config.timepass
 	local s = {}
-	local durations = {}--å‰ç§»æ—¶é—´
+	local durations = {}--Ç°ÒÆÊ±¼ä
 	
 	for i = 1, #sel do
-		-- ç¬¬ä¸€æ­¥ æ—¶é—´é—´éš”å…¨éƒ¨å‰ç§»æŒ‡å®šæ—¶é—´
+		-- µÚÒ»²½ Ê±¼ä¼ä¸ôÈ«²¿Ç°ÒÆÖ¸¶¨Ê±¼ä
 		s[i] = subs[sel[i]]
 		s[i].start_time = s[i].start_time - timeadv
 		--s[i].name = string.format("%s,%s",s[i].start_time,s[i].end_time)
@@ -224,11 +140,11 @@ function kara_parse_double(subs, sel, config)
 	end
 	
 	for i = 1, #sel do		
-		-- ç¬¬äºŒæ­¥ æ­¤è¡Œç»“æŸæ—¶é—´å»¶é•¿åˆ°éš”è¡Œçš„å¼€å§‹æ—¶é—´
+		-- µÚ¶ş²½ ´ËĞĞ½áÊøÊ±¼äÑÓ³¤µ½¸ôĞĞµÄ¿ªÊ¼Ê±¼ä
 		
 		if i <= #sel-2 then
 			drt = s[i+2].start_time - s[i].end_time
-			if config.fn1 and drt < 0 then--åŒä¸€ä½ç½®çš„å‰åå¥æ—¶é—´å†²çªæ—¶
+			if config.fn1 and drt < 0 then--Í¬Ò»Î»ÖÃµÄÇ°ºó¾äÊ±¼ä³åÍ»Ê±
 				durations[i+2] = durations[i+2] + drt
 				s[i+2].start_time = s[i].end_time
 				flag[3] = flag[3] + 1
@@ -247,21 +163,21 @@ function kara_parse_double(subs, sel, config)
 	end
 		
 	for i = 1, #sel do
-		-- ç¬¬ä¸‰æ­¥ å†™å…¥å„è¡Œæ­Œè¯çš„å‰ç§»ç‰¹æ•ˆ
+		-- µÚÈı²½ Ğ´Èë¸÷ĞĞ¸è´ÊµÄÇ°ÒÆÌØĞ§
 		s[i].text = string.format("{\\k%d}%s", math.floor(durations[i]/10), s[i].text)
 		subs[sel[i]] = s[i]
 	end
 	
 	if flag then
-		aegisub.debug.out(0, "å‘½ä»¤æˆåŠŸå®Œæˆã€‚\nå‰ç§»äº†%sè¡Œã€‚\né€šå¸¸å»¶é•¿äº†%sè¡Œã€‚\nå»¶é•¿å¹¶ä¿®æ­£äº†%sè¡Œã€‚", flag[1], flag[2], flag[3])
+		aegisub.debug.out(0, "ÃüÁî³É¹¦Íê³É¡£\nÇ°ÒÆÁË%sĞĞ¡£\nÍ¨³£ÑÓ³¤ÁË%sĞĞ¡£\nÑÓ³¤²¢ĞŞÕıÁË%sĞĞ¡£", flag[1], flag[2], flag[3])
 		
 		aegisub.set_undo_point(script_name)
 	else
-		aegisub.debug.out(0, "æ²¡æœ‰è¿›è¡Œä¿®æ”¹")
+		aegisub.debug.out(0, "Ã»ÓĞ½øĞĞĞŞ¸Ä")
 	end
 end
 
-function kara_parse_wchar(subs, sel, config)--å®½å­—ç¬¦è‡ªåŠ¨åŒºéš”éŸ³èŠ‚
+function kara_parse_wchar(subs, sel, config)--¿í×Ö·û×Ô¶¯Çø¸ôÒô½Ú
 	local unicode = require 'aegisub.unicode'
 	local s = {}
 	local TLSubs = read_syllables(subs, sel)
@@ -270,12 +186,12 @@ function kara_parse_wchar(subs, sel, config)--å®½å­—ç¬¦è‡ªåŠ¨åŒºéš”éŸ³èŠ‚
 	aegisub.progress.set(0)
 	for i = 1, #TLSubs do
 		local subp = TLSubs[i]
-		if #subp["syllables"] == 1 and subp["syllables"][1].duration == 0 then--åªæœ‰åœ¨æ²¡æœ‰éŸ³èŠ‚å­˜åœ¨æ—¶æ‰æ‰§è¡Œ
+		if #subp["syllables"] == 1 and subp["syllables"][1].duration == 0 then--Ö»ÓĞÔÚÃ»ÓĞÒô½Ú´æÔÚÊ±²ÅÖ´ĞĞ
 			local sw0 = ""
 			local sw = {}
 			local length = unicode.len(subp.text)
 			local j = 1
-			for chr in unicode.chars(subp.text) do--åˆ©ç”¨unicodeé•¿åº¦ä¸asciié•¿åº¦ä¸åŒæ¥åˆ¤æ–­æ˜¯å¦å®½å­—ç¬¦/å•è¯ï¼Œå¦‚æœæ˜¯åˆ™è½½å…¥æ•°ç»„ï¼Œè¾¾åˆ°åŒºéš”éŸ³èŠ‚çš„ç›®çš„
+			for chr in unicode.chars(subp.text) do--ÀûÓÃunicode³¤¶ÈÓëascii³¤¶È²»Í¬À´ÅĞ¶ÏÊÇ·ñ¿í×Ö·û/µ¥´Ê£¬Èç¹ûÊÇÔòÔØÈëÊı×é£¬´ïµ½Çø¸ôÒô½ÚµÄÄ¿µÄ
 				if j >= length then
 					table.insert(sw, sw0..chr)
 				elseif chr == ' ' and string.len(sw0) > 0 then
@@ -295,8 +211,8 @@ function kara_parse_wchar(subs, sel, config)--å®½å­—ç¬¦è‡ªåŠ¨åŒºéš”éŸ³èŠ‚
 			if #sw == 0 then
 				table.insert(sw, sw0)
 			end
-			local interval = math.floor((subp.end_time - subp.start_time) / #sw)--è®¡ç®—å¹³å‡é—´éš”æ—¶é—´
-			for k,subsw in pairs(sw) do			--å†™å…¥å…¨å±€å‡½æ•°
+			local interval = math.floor((subp.end_time - subp.start_time) / #sw)--¼ÆËãÆ½¾ù¼ä¸ôÊ±¼ä
+			for k,subsw in pairs(sw) do			--Ğ´ÈëÈ«¾Öº¯Êı
 				TLSubs[i]["syllables"][k] = {
 					duration = interval,
 					tag = config.tag,
@@ -309,20 +225,20 @@ function kara_parse_wchar(subs, sel, config)--å®½å­—ç¬¦è‡ªåŠ¨åŒºéš”éŸ³èŠ‚
 	write_syllables(subs, sel, TLSubs)
 end
 
-function kara_strip_tags(subs, sel, config)--å»é™¤å¡æ‹‰OKæ ‡ç­¾ä½†æ˜¯ç»´æŒåŸæœ¬çš„start_timeå’Œend_time
+function kara_strip_tags(subs, sel, config)--È¥³ı¿¨À­OK±êÇ©µ«ÊÇÎ¬³ÖÔ­±¾µÄstart_timeºÍend_time
 	local TLSubs = read_syllables(subs, sel)
 	for i = 1, #TLSubs do
 		local subp = TLSubs[i]
 		local syls = subp["syllables"]
-		if syls[#syls].duration > 20 and syls[#syls].text == '' then --å…ˆåˆ¤æ–­å°¾éƒ¨ï¼Œè®¤ä¸ºæ—¶é—´å°äºç­‰äº20msçš„éƒ½æ˜¯å ä½ç¬¦ä¸å¤„ç†
+		if syls[#syls].duration > 20 and syls[#syls].text == '' then --ÏÈÅĞ¶ÏÎ²²¿£¬ÈÏÎªÊ±¼äĞ¡ÓÚµÈÓÚ20msµÄ¶¼ÊÇÕ¼Î»·û²»´¦Àí
 			subp.end_time = subp.end_time - syls[#syls].duration
 			table.remove(TLSubs[i]["syllables"],#syls)
 		end
-		if syls[1].duration > 0 and syls[1].text == '' then --å†åˆ¤æ–­å¤´éƒ¨ï¼Œé¿å…è¯¯ä¿®æ”¹ç´¢å¼•
+		if syls[1].duration > 0 and syls[1].text == '' then --ÔÙÅĞ¶ÏÍ·²¿£¬±ÜÃâÎóĞŞ¸ÄË÷Òı
 			subp.start_time = subp.start_time + syls[1].duration
 			table.remove(TLSubs[i]["syllables"],1)
 		end
-		if config.allstrip then --æ¸…é™¤å‰©ä½™æ‰€æœ‰å¡æ‹‰OKæ ‡ç­¾ä½†æ˜¯ä¸ä¿®æ”¹æ—¶é—´
+		if config.allstrip then --Çå³ıÊ£ÓàËùÓĞ¿¨À­OK±êÇ©µ«ÊÇ²»ĞŞ¸ÄÊ±¼ä
 			local syls_temp = ""
 			for j=1, #syls do
 				syls_temp = syls_temp..syls[j].text
@@ -342,7 +258,7 @@ end
 function kara_swift(subs, sel, tp)
 	if tp == 0 then
 		for i = 1, #sel do
-			local sub = subs[sel[i]]--TODO:å®é™…ä¸Šæ˜¯å¼•ç”¨ï¼Œè¿™ä¹ˆå†™æ²¡æ„ä¹‰
+			local sub = subs[sel[i]]--TODO:Êµ¼ÊÉÏÊÇÒıÓÃ£¬ÕâÃ´Ğ´Ã»ÒâÒå
 			local subp = subs[sel[i]]
 			aegisub.parse_karaoke_data(subp)
 			local effect = ''
@@ -377,63 +293,175 @@ function kara_swift(subs, sel, tp)
 		end
 	end
 end
---TODO: è¡Œé—´å…³ç³»ï¼š
---column-åŒæ­¥åˆ—Cï¼ŒHè¡¨ç¤ºåˆ—é¦–å¥ï¼ŒSè¡¨ç¤ºåˆ—åå¥ï¼ŒåŒæ ‡è®°çš„åå¥çš„èµ·æ­¢æ—¶é—´å’ŒéŸ³èŠ‚éƒ½è·Ÿé¦–å¥å¯¹é½
---row-æ¥ç»­è¡ŒRï¼ŒåŒæ ‡è®°çš„æ¥ç»­è¡Œè®¤ä¸ºå½¼æ­¤æœ‰å‰åè¿ç»­å…³ç³»
---{"C" = {"no" = 3, "tp" = "H"}, "R" = {"no" = 2}}èŒƒä¾‹
+--TODO: ĞĞ¼ä¹ØÏµ£º
+--Head-¹Ø¼ü¾ä£¬ÈÏÎª¹Ø¼ü¾ä¾ÍÊÇRÓĞÖµµÄ¾ä×Ó
+--column-Í¬²½ÁĞC£¬Í¬±ê¼ÇµÄºó¾äµÄÆğÖ¹Ê±¼äºÍÒô½Ú¶¼¸ú¹Ø¼ü¾ä¶ÔÆë
+--row-½ÓĞøĞĞR£¬Í¬±ê¼ÇµÄ½ÓĞøĞĞÈÏÎª±Ë´ËÓĞÇ°ºóÁ¬Ğø¹ØÏµ
+--{"C" = 3, "R" = 5£¬"H" = 1}·¶Àı
 
---æµç¨‹ï¼šæ‰§è¡Œâ€”é¢„è¯»æ ·å¼â€”é¢„åˆ¤æ ·å¼ä¸åˆ—çš„å…³ç³»è¡¨â€”æ˜¾ç¤ºè°ƒæ•´çª—å£â€”ç¡®å®šåå†™å…¥effect
-
---1. é¢„è¯»æ ·å¼ï¼Œè®¡ç®—é¢„åˆ¤å…³ç³»è¡¨ï¼Œå†™å…¥configï¼Œæ˜¾ç¤ºåˆ—è°ƒæ•´çª—å£
-function timeline_org_prepare(subs, sel, step, config)
+--Á÷³Ì£ºÖ´ĞĞ¡ªÔ¤¶ÁÑùÊ½¡ªÔ¤ÅĞÑùÊ½ÓëÁĞµÄ¹ØÏµ±í¡ªÏÔÊ¾µ÷Õû´°¿Ú¡ªÈ·¶¨ºóĞ´Èëeffect
+--TODO: ÓÃrepeat...until...ÊµÏÖ±à¼­´°¿Ú
+--TODO: ×Ô¶¯¼ì²âÊÇ·ñÒÑ¾­¹ØÏµ»¯£¬¹ØÏµ»¯ºÏ·¨ĞÔ
+function timeline_org_main(subs, sel)
 	local TLSubs = read_syllables(subs, sel)
-	local styles = timeline_read_styles(subs, sel)
-	local style_keys = table_keys(styles)
-	
-	local headstyle = ""
-	local cnum = 0
-	local style_proc = {}
-	for k, v in pairs(styles) do
-		if v > cnum then
-			headstyle = k--è®¤ä¸ºå‡ºç°æ¬¡æ•°æœ€å¤šå¹¶ä¸”æœ€é å‰çš„ä¸ºé¦–å¥ï¼ŒåŒæ—¶è®°å½•æ¬¡æ•°ä½œä¸ºåˆ—æ€»æ•°
-			cnum = v
+	local styles, headstyle = timeline_org_prepare(TLSubs)--µÃµ½styleÁĞ±íºÍÔ¤¹ÀµÄ¹Ø¼ü¾äÑùÊ½
+	local rmax, rnum = 9, 1
+	local TLRels = timeline_create_rels(TLSubs, headstyle, styles)--Éú³É¹Ø¼ü¾ä¹ØÏµ±í
+	timeline_parse_rows(TLSubs, TLRels, styles, headstyle, rnum)--Éú³ÉĞĞ¹ØÏµ
+	local cmax = timeline_parse_columns(TLSubs, TLRels, styles)--Éú³ÉÁĞ¹ØÏµ
+	local button, config = "", {}
+	while(button and button ~= "Save" and button ~= "Cancel") do--ÓÃÑ­»·´ïµ½³ÖĞøÏÔÊ¾´°ÌåĞ§¹û
+		
+		button, config = timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, styles, headstyle, rmax, rnum, cmax)
+		if button == "Auto" then--¸ù¾İ×Ô¶¯Éè¶¨ÖØÖÃĞĞÁĞ
+			headstyle = config.headstyle
+			rnum = tonumber(config.rnum)
+			TLRels = timeline_create_rels(TLSubs, headstyle, styles)--Éú³É¹Ø¼ü¾ä¹ØÏµ±í
+			timeline_parse_rows(TLSubs, TLRels, styles, headstyle, rnum)--Éú³ÉĞĞ¹ØÏµ
+			cmax = timeline_parse_columns(TLSubs, TLRels, styles)--Éú³ÉÁĞ¹ØÏµ
 		end
-		style_proc[k] = 1
+		--button, config = rst[1], rst[2]
+		--aegisub.debug.out(0, button)
 	end
-	--TODO: ä»è¿™é‡Œæ–­å¼€ï¼Œå…ˆç»™åŸºäºæ ·å¼çš„åˆ¤å®šçª—å£ï¼Œä¹‹åå†æ˜¾ç¤ºå¥å­çš„ç¡®è®¤çª—å£
+	--local config1 = timeline_org_1_dialog(subs, sel, styles, headstyle)--ÏÔÊ¾ÑùÊ½¶Ô»°¿ò
+	--if (config1.head ~= headstyle) then headstyle = config1.head end--È·¶¨headÓëÑùÊ½µÄ¹ØÏµ
+	--local rnum = config1.rnum--È·¶¨row·ÖÎª¼¸ĞĞ
+	if button == "Save" then
+		timeline_org_update(TLSubs, TLRels)
+		write_syllables(subs, sel, TLSubs)
+	end	
+end
+
+function timeline_org_prepare(TLSubs)
+	local styles = {}
+	local headstyle = ""
 	for i = 1, #TLSubs do
 		local subp = TLSubs[i]
-		local rel = {C = {}}
-		if subp.style == headstyle then
-			rel["C"]["tp"] = "H"
-		else
-			rel["C"]["tp"] = "S"
-		end
-		rel["C"]["no"] = style_proc[subp.style]
-		subp.effect = table_serialize(rel)
-		style_proc[subp.style] = style_proc[subp.style] + 1
-	end
-	write_syllables(subs, sel, TLSubs)
-end
-
---2. æ ¹æ®åˆ—è°ƒæ•´å‚æ•°ä¿®æ”¹å¹¶å†™å…¥
-
---é¢„è¯»æ ·å¼å¹¶è®¡ç®—æ ·å¼çš„æ›´æ›¿æ¬¡æ•°
-function timeline_read_styles(subs, sel)
-	local styles = {}
-	for i = 1, #sel do
-		local subp = subs[sel[i]]
 		s = subp.style
 		if(not styles[s]) then
-			styles[s] = 0
-		else
-			styles[s] = styles[s] + 1
+			styles[s] = 1
 		end
+		if headstyle == "" and #subp["syllables"] > 1 then headstyle = subp.style end--µÚÒ»¸öÒô½ÚÊı¶àÓÚ1µÄ¾äÎª¹Ø¼ü¾ä
 	end
-	return styles
+	local styles = table_keys(styles)
+	if headstyle == "" then headstyle = styles[1] end--Ç°ÃæÃ»Ñ¡³ö¹Ø¼ü¾äµÄÇé¿ö
+	
+	return styles, headstyle
 end
 
---å°†æ‰€æœ‰è¡Œçš„èµ·å§‹å’Œç»“æŸæ—¶é—´å†™å…¥effectåˆ—
+function timeline_create_rels(TLSubs, headstyle, styles)--Éú³É¹Ø¼ü¾ä¹ØÏµ±í£¬ÈÏÎªR¼´´ú±í¹Ø¼ü¾ä
+	local TLRels = {}
+	for i = 1, #TLSubs do
+		local rel = {}
+		if TLSubs[i]["style"] == headstyle then
+			rel["R"] = 99
+		end
+		TLRels[i] = rel
+	end
+	return TLRels
+end
+
+function timeline_parse_rows(TLSubs, TLRels, styles, headstyle, rnum)
+	local r = 1
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i]
+		if subp.style == headstyle then
+			local rel = TLRels[i]
+			rel["R"] = r
+			if r >= rnum then
+				r = 1
+			else
+				r = r + 1
+			end
+			TLRels[i] = rel	
+		end		
+	end
+end
+
+function timeline_parse_columns(TLSubs, TLRels, styles)--Éú³ÉÁĞ¹ØÏµ£¬Í¬Ê±·µ»Ø×î´óÁĞÊı
+	local style_proc = {}
+	for _, v in pairs(styles) do
+		style_proc[v] = 1
+	end
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i]
+		local rel = TLRels[i]
+		rel["C"] = style_proc[subp.style]
+		style_proc[subp.style] = style_proc[subp.style] + 1
+		TLRels[i] = rel
+	end	
+	local cmax = 1
+	for _, v in pairs(style_proc) do
+		if v > cmax then cmax = v end
+	end
+	return cmax
+end
+
+function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, styles, headstyle, rmax, rnum, cmax)
+	local showlines = util.deep_copy(UI_conf["tlorg_ctrl_dialogs"])
+	local lnum = 1
+	aegisub.progress.task("Creating Dialog...Please Wait")
+	aegisub.progress.set(0)
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i]
+		local relp = TLRels[i]
+		--local newline = util.deep_copy(UI_conf["tlorg_ctrl_dialog_edit_elements"])
+		local hv, cv
+		if TLRels[i]["R"] then 
+			hv = true
+			rv = TLRels[i]["R"]
+		else
+			hv = false
+			rv = 0
+		end
+		local newline = {
+			{ 0, i, 1, 1, "checkbox", name = "head_" .. i, value = hv },
+			{ 1, i, 1, 1, "intedit", name = "row_" .. i,  value = rv, min = 0, max = rmax },
+			{ 2, i, 1, 1, "intedit", name = "col_" .. i,  value = TLRels[i]["C"], min = 1, max = cmax },
+			--{ 1, y, 1, 1, "dropdown", name = "row_" .. i, items = rlist, value = rv },
+			--{ 2, y, 1, 1, "dropdown", name = "col_" .. i, items = clist, value = TLRels[i]["C"] },
+			{ 3, i, 1, 1, "edit", name = "style_" .. i, text = subp.style },
+			{ 4, i, 30, 1, "edit", name = "text_" .. i, text = subp.text }
+		}	
+		array_plus(showlines, newline)
+		lnum = lnum + 1
+		aegisub.progress.set(i / (#TLSubs + 2) * 100)
+	end
+	--aegisub.debug.out(0, table_serialize(showlines))
+	local settingline = {
+		{ 0, lnum, 1, 1, "label", label = "----" },
+		{ 1, lnum, 1, 1, "label", label = "----------------" },
+		{ 2, lnum, 1, 1, "label", label = "----------------" },
+		{ 3, lnum, 1, 1, "label", label = "----------------" },
+		{ 0, lnum + 1, 1, 1, "label", label = "½ÓĞøÊı" },--ĞèÒªĞŞ¸Äy
+		{ 1, lnum + 1, 1, 1, "dropdown", name = "rnum", items = table_make_array(rmax), value = rnum },--ĞèÒªĞŞ¸Äy¡¢items¡¢value
+		{ 2, lnum + 1, 1, 1, "label", label = "¹Ø¼üÑùÊ½" },--ĞèÒªĞŞ¸Äy
+		{ 3, lnum + 1, 1, 1, "dropdown", name = "headstyle", items = styles, value = headstyle }--ĞèÒªĞŞ¸Äy¡¢name¡¢items¡¢value
+	}
+	aegisub.progress.set(100)
+	array_plus(showlines, settingline)
+	return show_dialog(subs, sel, showlines, 'tlorg_ctrl_buttons', 'tlorg_ctrl_commands')
+end
+
+function timeline_org_update(TLSubs, TLRels)
+	for i = 1, #TLSubs do
+		local subp = TLSubs[i]
+		if TLRels[i] and TLRels[i] ~= {} then
+			subp.effect =table_serialize(TLRels[i])
+		end		 
+	end
+	return TLSubs
+end
+
+--2. ¸ù¾İÁĞµ÷Õû²ÎÊıĞŞ¸Ä²¢Ğ´Èë
+
+--Ô¤¶ÁÑùÊ½
+function timeline_read_styles(subs, sel, TLSubs)
+	
+	return styles, headstyle
+end
+
+--½«ËùÓĞĞĞµÄÆğÊ¼ºÍ½áÊøÊ±¼äĞ´ÈëeffectÁĞ
 --[[
 function write_timeline_times(subs, sel)
 	local TLSubs = read_syllables(subs, sel)
@@ -449,15 +477,15 @@ function write_timeline_times(subs, sel)
 end
 --]]
 
---æå‰æˆ–å»¶åèµ·å§‹å’Œç»“æŸæ—¶é—´ï¼Œä¸æ”¹å˜éŸ³èŠ‚ï¼›
---drtè´Ÿæ•°ä¸ºæå‰ï¼Œæ­£æ•°ä¸ºå»¶åï¼›
---tp1=nilæˆ–0ä¸ºä¸ç§»åŠ¨ï¼Œ1ä¸ºåªç§»åŠ¨èµ·å§‹ï¼Œ2ä¸ºåªç§»åŠ¨ç»“æŸï¼Œ3ä¸ºéƒ½ç§»åŠ¨ï¼›
---tp2=nilæˆ–0ä¸ºä¸å¤„ç†å†²çªï¼Œ1ä¸ºä¸æ”¹å˜å‰å¥æ—¶é—´ï¼Œ2ä¸ºä¸æ”¹å˜åå¥æ—¶é—´
---tp3=nilæˆ–0ä¸ºä¸ä¿®æ”¹éŸ³èŠ‚ï¼Œ1ä¸ºè‡ªåŠ¨æ·»åŠ ç©ºéŸ³èŠ‚å ä½ç¬¦
+--ÌáÇ°»òÑÓºóÆğÊ¼ºÍ½áÊøÊ±¼ä£¬²»¸Ä±äÒô½Ú£»
+--drt¸ºÊıÎªÌáÇ°£¬ÕıÊıÎªÑÓºó£»
+--tp1=nil»ò0Îª²»ÒÆ¶¯£¬1ÎªÖ»ÒÆ¶¯ÆğÊ¼£¬2ÎªÖ»ÒÆ¶¯½áÊø£¬3Îª¶¼ÒÆ¶¯£»
+--tp2=nil»ò0Îª²»´¦Àí³åÍ»£¬1Îª²»¸Ä±äÇ°¾äÊ±¼ä£¬2Îª²»¸Ä±äºó¾äÊ±¼ä
+--tp3=nil»ò0Îª²»ĞŞ¸ÄÒô½Ú£¬1Îª×Ô¶¯Ìí¼Ó¿ÕÒô½ÚÕ¼Î»·û
 function move_timelines(subs, sel, drt, tp1, tp2, tp3)
 	local TLSubs = read_syllables(subs, sel)
 	if tp1 or tp1 ~= 0 then
-		for i = 1, #TLSubs do--ç¬¬äºŒè½®å¾ªç¯ï¼Œå¯¹æ—¶é—´è¿›è¡Œä¿®æ”¹
+		for i = 1, #TLSubs do--µÚ¶şÂÖÑ­»·£¬¶ÔÊ±¼ä½øĞĞĞŞ¸Ä
 			local subp = TLSubs[i]
 			if tp1 == 1 or tp1 == 3 then
 				subp.start_time = subp.start_time + drt
@@ -468,25 +496,25 @@ function move_timelines(subs, sel, drt, tp1, tp2, tp3)
 		end
 	end
 	if tp2 or tp2 ~= 0 then
-		for i = 1, #TLSubs do--ç¬¬ä¸‰è½®å¾ªç¯ï¼Œå¤„ç†å†²çª
+		for i = 1, #TLSubs do--µÚÈıÂÖÑ­»·£¬´¦Àí³åÍ»
 			
 		end
 	end
 	write_syllables(subs, sel, TLSubs)
 end
 
---éŸ³èŠ‚ç§»åŠ¨çš„å£³å‡½æ•°
+--Òô½ÚÒÆ¶¯µÄ¿Çº¯Êı
 function kara_sylmov(subs, sel, config)
 	local drt = 0
-	if config.tp == "æå‰" then
+	if config.tp == "ÌáÇ°" then
 		drt = - config.duration
-	elseif config.tp == "å»¶å" then
+	elseif config.tp == "ÑÓºó" then
 		drt = config.duration
 	end
 	move_syllables(subs, sel, drt)
 end
 
---åœ¨èµ·å§‹å’Œç»“æŸæ—¶é—´ä¸å˜çš„å‰æä¸‹ï¼Œæå‰æˆ–å»¶åéŸ³èŠ‚åˆ’åˆ†çº¿ï¼›drtè´Ÿæ•°ä¸ºæå‰ï¼Œæ­£æ•°ä¸ºå»¶å
+--ÔÚÆğÊ¼ºÍ½áÊøÊ±¼ä²»±äµÄÇ°ÌáÏÂ£¬ÌáÇ°»òÑÓºóÒô½Ú»®·ÖÏß£»drt¸ºÊıÎªÌáÇ°£¬ÕıÊıÎªÑÓºó
 function move_syllables(subs, sel, drt, tp)
 	local TLSubs = read_syllables(subs, sel)
 	for i = 1, #TLSubs do
@@ -495,12 +523,12 @@ function move_syllables(subs, sel, drt, tp)
 		if #syls > 1 then
 			local drt1 = drt
 			if drt1 < 0 then
-				for j = 1, #syls do--æå‰ç¬¬ä¸€æ¬¡å¾ªç¯
+				for j = 1, #syls do--ÌáÇ°µÚÒ»´ÎÑ­»·
 					local syldrt = syls[j].duration
-					if syldrt + drt1 < 0 then--å•éŸ³èŠ‚ä¸å¤Ÿæå‰çš„æƒ…å†µä¸‹è¯¥éŸ³èŠ‚å½’é›¶ï¼Œç»§ç»­æå‰åä¸€ä¸ªéŸ³èŠ‚
+					if syldrt + drt1 < 0 then--µ¥Òô½Ú²»¹»ÌáÇ°µÄÇé¿öÏÂ¸ÃÒô½Ú¹éÁã£¬¼ÌĞøÌáÇ°ºóÒ»¸öÒô½Ú
 						syls[j].duration = 0
 						drt1 = drt1 + syldrt
-					else--å•éŸ³èŠ‚è¶³ä»¥æå‰çš„æƒ…å†µä¸‹åªéœ€è¦ä¿®æ”¹å½“å‰éŸ³èŠ‚
+					else--µ¥Òô½Ú×ãÒÔÌáÇ°µÄÇé¿öÏÂÖ»ĞèÒªĞŞ¸Äµ±Ç°Òô½Ú
 						syls[j].duration = syls[j].duration + drt1
 						drt1 = 0
 						break
@@ -508,17 +536,17 @@ function move_syllables(subs, sel, drt, tp)
 				end
 				local subdrt = subp.end_time-subp.start_time
 				local sum = 0
-				for j = 1, #syls do--ç¬¬äºŒæ¬¡å¾ªç¯ï¼Œè®¡ç®—æ€»éŸ³èŠ‚æ—¶é—´ï¼ŒæŠŠå·®å€¼åŠ åˆ°æœ€åä¸€ä¸ªéŸ³èŠ‚
+				for j = 1, #syls do--µÚ¶ş´ÎÑ­»·£¬¼ÆËã×ÜÒô½ÚÊ±¼ä£¬°Ñ²îÖµ¼Óµ½×îºóÒ»¸öÒô½Ú
 					sum = sum + syls[j].duration
 				end
 				syls[#syls].duration = syls[#syls].duration + subdrt - sum
-			elseif drt1 > 0 then--å»¶åç¬¬ä¸€æ¬¡å¾ªç¯
+			elseif drt1 > 0 then--ÑÓºóµÚÒ»´ÎÑ­»·
 				for j = #syls, 1, -1 do
 					local syldrt = syls[j].duration
-					if syldrt - drt1 < 0 then--å•éŸ³èŠ‚ä¸å¤Ÿå»¶åçš„æƒ…å†µä¸‹è¯¥éŸ³èŠ‚å½’é›¶ï¼Œç»§ç»­å»¶åå‰ä¸€ä¸ªéŸ³èŠ‚
+					if syldrt - drt1 < 0 then--µ¥Òô½Ú²»¹»ÑÓºóµÄÇé¿öÏÂ¸ÃÒô½Ú¹éÁã£¬¼ÌĞøÑÓºóÇ°Ò»¸öÒô½Ú
 						syls[j].duration = 0
 						drt1 = drt1 - syldrt
-					else--å•éŸ³èŠ‚è¶³ä»¥å»¶åçš„æƒ…å†µä¸‹åªéœ€è¦ä¿®æ”¹å½“å‰éŸ³èŠ‚
+					else--µ¥Òô½Ú×ãÒÔÑÓºóµÄÇé¿öÏÂÖ»ĞèÒªĞŞ¸Äµ±Ç°Òô½Ú
 						syls[j].duration = syls[j].duration - drt1
 						drt1 = 0
 						break
@@ -526,7 +554,7 @@ function move_syllables(subs, sel, drt, tp)
 				end
 				local subdrt = subp.end_time-subp.start_time
 				local sum = 0
-				for j = 1, #syls do--ç¬¬äºŒæ¬¡å¾ªç¯ï¼Œè®¡ç®—æ€»éŸ³èŠ‚æ—¶é—´ï¼ŒæŠŠå·®å€¼åŠ åˆ°ç¬¬ä¸€ä¸ªéŸ³èŠ‚
+				for j = 1, #syls do--µÚ¶ş´ÎÑ­»·£¬¼ÆËã×ÜÒô½ÚÊ±¼ä£¬°Ñ²îÖµ¼Óµ½µÚÒ»¸öÒô½Ú
 					sum = sum + syls[j].duration
 				end
 				syls[1].duration = syls[1].duration + subdrt - sum
@@ -536,14 +564,14 @@ function move_syllables(subs, sel, drt, tp)
 	write_syllables(subs, sel, TLSubs)
 end
 
---è¯»éŸ³èŠ‚å‡½æ•°ï¼šä»å°è¯æ–‡æœ¬è¯»å–æ¯è¡Œä»¥åŠæ¯ä¸ªéŸ³èŠ‚çš„æ•°æ®ï¼Œä½¿ç”¨parse_karaoke_data()å‡½æ•°ï¼Œè¿”å›éŸ³èŠ‚æ•°ç»„
+--¶ÁÒô½Úº¯Êı£º´ÓÌ¨´ÊÎÄ±¾¶ÁÈ¡Ã¿ĞĞÒÔ¼°Ã¿¸öÒô½ÚµÄÊı¾İ£¬Ê¹ÓÃparse_karaoke_data()º¯Êı£¬·µ»ØÒô½ÚÊı×é
 function read_syllables(subs, sel, tp)
 	local sublist = {}
 	aegisub.progress.task("Reading Lines...")
 	aegisub.progress.set(0)
 	for i = 1, #sel do
 		local subp = subs[sel[i]]
-		if subp.text ~= '' and not subp.comment then--ç©ºè¡Œå’Œæ³¨é‡Šè¡Œä¸ä¼šè¢«è¯»å– 
+		if subp.text ~= '' and not subp.comment then--¿ÕĞĞºÍ×¢ÊÍĞĞ²»»á±»¶ÁÈ¡ 
 			local sylp = subs[sel[i]]
 			sublist[i] = {
 				start_time = subp.start_time,
@@ -554,7 +582,7 @@ function read_syllables(subs, sel, tp)
 				syllables = {}
 			}
 			if subp.effect then 
-				sublist[i]["rel"] = table_unserialize(subp.effect)--é¡ºä¾¿è¯•å›¾åºåˆ—åŒ–è¡Œé—´å…³ç³»ï¼Œå¦‚æœä¸å­˜åœ¨åˆ™ä¸ºnil
+				sublist[i]["rel"] = table_unserialize(subp.effect)--Ë³±ãÊÔÍ¼ĞòÁĞ»¯ĞĞ¼ä¹ØÏµ£¬Èç¹û²»´æÔÚÔòÎªnil
 			else
 				sublist[i]["rel"] = nil
 			end
@@ -563,12 +591,12 @@ function read_syllables(subs, sel, tp)
 				sublist[i]["syllables"][j] = sylp[j]
 			end
 		end		
-		aegisub.progress.set(i / #sel)
+		aegisub.progress.set(i / #sel * 100)
 	end
 	return sublist
 end
 
---å†™éŸ³èŠ‚å‡½æ•°ï¼šæŠŠéŸ³èŠ‚æ•°æ®å†…å®¹å†™å›é€‰æ‹©çš„è¡Œï¼ŒåŒæ—¶ä¹Ÿä¼šæ›´æ–°textå±æ€§ï¼›tpé»˜è®¤ä¸ºfalseï¼Œtpä¸º1è¡¨ç¤ºå¼ºåˆ¶å†™å…¥
+--Ğ´Òô½Úº¯Êı£º°ÑÒô½ÚÊı¾İÄÚÈİĞ´»ØÑ¡ÔñµÄĞĞ£¬Í¬Ê±Ò²»á¸üĞÂtextÊôĞÔ£»tpÄ¬ÈÏÎªfalse£¬tpÎª1±íÊ¾Ç¿ÖÆĞ´Èë
 function write_syllables(subs, sel, cont, tp)
 	local sublist = cont
 	aegisub.progress.task("Writing Lines...")
@@ -581,7 +609,7 @@ function write_syllables(subs, sel, cont, tp)
 			for j = 1, #sylp do
 				subp = subp..string.format("{%s%d}%s", sylp[j].tag, sylp[j].duration/10, sylp[j].text)
 			end
-		else --çº¯å­—ç¬¦è¡Œå»æ‰è¡Œé¦–çš„ç©ºéŸ³èŠ‚æ ‡è®°
+		else --´¿×Ö·ûĞĞÈ¥µôĞĞÊ×µÄ¿ÕÒô½Ú±ê¼Ç
 			subp = sylp[1].text
 		end
 		sublist[i]["text"] = subp
@@ -591,31 +619,43 @@ function write_syllables(subs, sel, cont, tp)
 		sub.style = sublist[i]["style"]
 		sub.effect = sublist[i]["effect"]
 		subs[sel[i]] = sub
-		aegisub.progress.set(i / #sublist)
+		aegisub.progress.set(i / #sublist * 100)
 	end
 end
 
---æ˜¾ç¤ºå¯¹è¯æ¡†çš„é€šç”¨å‡½æ•°
+--ÏÔÊ¾¶Ô»°¿òµÄÍ¨ÓÃº¯Êı
 function show_dialog(subs, sel, dconf, bconf, cconf, info)
-	local button
-	local util = require 'aegisub.util'--UIéƒ¨åˆ†éœ€è¦ç”¨åˆ°utilçš„æ·±æ‹·è´åŠŸèƒ½
-	local Ud = util.deep_copy(UI_conf[dconf])
-	local Ub = util.deep_copy(UI_conf[bconf])
-	local Uc = util.deep_copy(UI_conf[cconf])
+	local button, config, rst, rst2
+	local Ud, Ub, Uc = dconf, bconf, cconf
+	if type(Ud) == "string" then Ud = util.deep_copy(UI_conf[dconf]) end
+	if type(Ub) == "string" then Ub = util.deep_copy(UI_conf[bconf]) end
+	if type(Uc) == "string" then Uc = util.deep_copy(UI_conf[cconf]) end
+	for k, v in pairs(Ud) do
+		v.x = v[1]
+		v.y = v[2]
+		v.width = v[3]
+		v.height = v[4]
+		v.class = v[5]
+	end
 	if(info) then 
 		Ud['info']['label'] = info
 		info = ''
 	end
 	button, config = aegisub.dialog.display(Ud,Ub)
-	for i, c in pairs(Uc) do
-		if button == Ub[i] then
-			c(subs,sel,config)
-			break
+	if type(Uc) == "table" then
+		for i, c in pairs(Uc) do
+			if button == Ub[i] then
+				rst = c(subs,sel,config)
+				break
+			end
 		end
+	elseif type(Uc) == "function" then
+		rst, rst2 = Uc(subs,sel,button,config)
 	end
+	return rst, rst2
 end
 
---åº•å±‚å‡½æ•°ï¼šåºåˆ—åŒ–ï¼Œå°†è¡¨è½¬åŒ–ä¸ºå­—ç¬¦ä¸²
+--µ×²ãº¯Êı£ºĞòÁĞ»¯£¬½«±í×ª»¯Îª×Ö·û´®
 function table_serialize(tbl)
 	local str = '{'
 	for k, v in pairs(tbl) do
@@ -631,7 +671,7 @@ function table_serialize(tbl)
 		elseif type(v) == 'string' then
 			str = str .. '"' .. v .. '",' 
 		elseif type(v) == 'table' then
-			str = str .. table_serialize(v) .. ','--å¯èƒ½å­˜åœ¨å¾ªç¯è°ƒç”¨ï¼Œä¸è¿‡ä¸€èˆ¬é‡ä¸åˆ°å§
+			str = str .. table_serialize(v) .. ','--¿ÉÄÜ´æÔÚÑ­»·µ÷ÓÃ£¬²»¹ıÒ»°ãÓö²»µ½°É
 		else
 			str = str .. 'nil,'
 		end
@@ -640,8 +680,8 @@ function table_serialize(tbl)
 	return str
 end
 
---åº•å±‚å‡½æ•°ï¼šååºåˆ—åŒ–ï¼Œå°†å­—ç¬¦ä¸²è½¬åŒ–ä¸ºè¡¨
---å·æ‡’ç›´æ¥æ‰§è¡Œï¼Œæœ‰å®‰å…¨é£é™©ï¼Œä¸è¿‡è°ä¼šå¯¹æœ¬åœ°è„šæœ¬è¿‡ä¸å»ï¼Ÿ
+--µ×²ãº¯Êı£º·´ĞòÁĞ»¯£¬½«×Ö·û´®×ª»¯Îª±í
+--ÍµÀÁÖ±½ÓÖ´ĞĞ£¬ÓĞ°²È«·çÏÕ£¬²»¹ıË­»á¶Ô±¾µØ½Å±¾¹ı²»È¥£¿
 function table_unserialize(str)
 	local tbl = nil
 	if type(str) == "string" and str ~= "" then
@@ -652,7 +692,15 @@ function table_unserialize(str)
   return tbl
 end
 
---åº•å±‚å‡½æ•°ï¼šè¿”å›è¡¨çš„é”®å
+function table_make_array(n)
+	local rst = {}
+	for i = 1, n do
+		table.insert(rst, i)
+	end
+	return rst
+end
+
+--µ×²ãº¯Êı£º·µ»Ø±íµÄ¼üÃû
 function table_keys(tbl) 
 	local ks = {}
 	for k, _ in pairs(tbl) do
@@ -661,7 +709,7 @@ function table_keys(tbl)
 	return ks
 end
 
---åº•å±‚å‡½æ•°ï¼šè¡¨æµ…æŸ¥æ‰¾
+--µ×²ãº¯Êı£º±íÇ³²éÕÒ
 function table_search(tbl, val) 
 	local pos = nil
 	for k, v in pairs(tbl) do
@@ -673,7 +721,26 @@ function table_search(tbl, val)
 	return pos
 end
 
---åº•å±‚å‡½æ•°ï¼šluaç‰ˆçš„explode
+--µ×²ãº¯Êı£º±íºÏ²¢
+function table_merge(tbl1, tbl2)
+	for k, v in pairs(tbl2) do
+		if type(k) == "number" then
+			table.insert(tbl1, v)
+		elseif type(k) == "string" then
+			tbl1[k] = v
+		end
+	end
+	return tbl1
+end
+
+function array_plus(tbl1, tbl2)
+	for k, v in ipairs(tbl2) do
+		table.insert(tbl1, v)
+	end
+	return tbl1
+end
+
+--µ×²ãº¯Êı£ºlua°æµÄexplode
 function LuaSplit(str,split)  
     local lcSubStrTab = {}  
     while true do  
@@ -690,7 +757,7 @@ function LuaSplit(str,split)
 end 
  
 --[[
---åº•å±‚å‡½æ•°ï¼šç±»ä¼¼phpçš„åˆ¤å¦å‡½æ•°
+--µ×²ãº¯Êı£ºÀàËÆphpµÄÅĞ·ñº¯Êı
 function !(v)
 	return not v or v == 0 or v == "" or v == {}
 end
@@ -701,44 +768,51 @@ function selection_validation(subs, sel)
 end
 
 function test(subs, sel)
-	timeline_org_prepare(subs, sel)
+	local a = function(subs,sel,button,config) return button end
+	button = show_dialog(subs,sel,{},{},"tlorg_ctrl_commands")
+	aegisub.debug.out(0, table_serialize(button,' '))
 end
 
---æ‰¹é‡è½½å…¥å®		
+--ÅúÁ¿ÔØÈëºê		
 TLL_macros = {
 	{
-		script_name = "TLL - åˆ’åˆ†æ±‰å­—éŸ³èŠ‚",
-		script_description = "è‡ªåŠ¨è¯†åˆ«æ±‰å­—ç­‰å®½å­—ç¬¦å¹¶ä»¥å¡æ‹‰OKæ ‡ç­¾éš”æ–­",
+		script_name = "»®·Öºº×ÖÒô½Ú",
+		script_description = "×Ô¶¯Ê¶±ğºº×ÖµÈ¿í×Ö·û²¢ÒÔ¿¨À­OK±êÇ©¸ô¶Ï",
 		entry = function(subs, sel) show_dialog(subs, sel, 'wchar_dialogs', 'wchar_buttons', 'wchar_commands') end,
 		validation = false
 	},
 	{
-		script_name = "TLL - æ¸…ç†å ä½éŸ³èŠ‚",
-		script_description = "åˆ é™¤å­—å¹•å‰åçš„å ä½éŸ³èŠ‚å¹¶ä¿è¯æ—¶é—´ç‚¹æ­£ç¡®",
+		script_name = "ÇåÀíÕ¼Î»Òô½Ú",
+		script_description = "É¾³ı×ÖÄ»Ç°ºóµÄÕ¼Î»Òô½Ú²¢±£Ö¤Ê±¼äµãÕıÈ·",
 		entry = function(subs,sel,config) show_dialog(subs, sel, 'strip_dialogs', 'strip_buttons', 'strip_commands') end,
 		validation = false
 	},
 	{
-		script_name = "TLL - æ‰¹é‡ç§»åŠ¨éŸ³èŠ‚",
-		script_description = "ä¸æ”¹å˜èµ·æ­¢æ—¶é—´ï¼Œç»Ÿä¸€ç§»åŠ¨æ‰€é€‰è¡ŒéŸ³èŠ‚çš„åˆ†éš”æ—¶é—´",
+		script_name = "ÅúÁ¿ÒÆ¶¯Òô½Ú",
+		script_description = "²»¸Ä±äÆğÖ¹Ê±¼ä£¬Í³Ò»ÒÆ¶¯ËùÑ¡ĞĞÒô½ÚµÄ·Ö¸ôÊ±¼ä",
 		entry = function(subs,sel,config) show_dialog(subs, sel, 'sylmov_dialogs', 'sylmov_buttons', 'sylmov_commands') end,
 		validation = false
 	},
 	{
-		script_name = "TLL - åŒè¡Œå­—å¹•",
-		script_description = "åˆ›å»ºåŒè¡Œå¡æ‹‰OKå­—å¹•",
+		script_name = "Ë«ĞĞ×ÖÄ»",
+		script_description = "´´½¨Ë«ĞĞ¿¨À­OK×ÖÄ»",
 		entry = function(subs,sel,config) show_dialog(subs, sel, 'double_dialogs', 'double_buttons', 'double_commands') end,
 		validation = selection_validation
 	},
 	{
-		script_name = "TLL - éŸ³èŠ‚åˆ‡æ¢",
-		script_description = "ç”ŸæˆéŸ³èŠ‚æ–‡æœ¬æˆ–æ ¹æ®éŸ³èŠ‚æ–‡æœ¬ä¿®æ”¹å­—å¹•",
+		script_name = "Òô½ÚÇĞ»»",
+		script_description = "Éú³ÉÒô½ÚÎÄ±¾»ò¸ù¾İÒô½ÚÎÄ±¾ĞŞ¸Ä×ÖÄ»",
 		entry = function(subs,sel,config) show_dialog(subs, sel, 'swift_dialogs', 'swift_buttons', 'swift_commands') end,
 		validation = false
-	}
+	},
+	{
+		script_name = "Ê±¼äÖá¹ØÏµ»¯",
+		script_description = "»ùÓÚÑùÊ½Éú³ÉÊ±¼äÖáÍ¬²½ºÍÁ¬ĞøµÄ¹ØÏµĞÅÏ¢",
+		entry = function(subs,sel,config) timeline_org_main(subs, sel) end,
+		validation = false
+	},
 }
 for i = 1, #TLL_macros do
-	aegisub.register_macro(TLL_macros[i]["script_name"], TLL_macros[i]["script_description"], TLL_macros[i]["entry"], TLL_macros[i]["validation"])
+	aegisub.register_macro(script_name.."/"..TLL_macros[i]["script_name"], TLL_macros[i]["script_description"], TLL_macros[i]["entry"], TLL_macros[i]["validation"])
 end
---aegisub.register_macro(script_name.." "..script_version, script_description, entry, validation)
-aegisub.register_macro('1234', '123456', test)
+--aegisub.register_macro("TEST", script_description, test)
