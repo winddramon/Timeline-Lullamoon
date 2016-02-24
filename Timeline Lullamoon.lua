@@ -31,11 +31,8 @@ util = require'aegisub.util'
 unicode = require 'aegisub.unicode'
 
 UI_conf = {
-	--1,1,1,1,"intedit",value,min,max,"hint"
-	--1,1,1,1,"label","text"
-	--1,1,1,1,"checkbox",true
-	--1,1,1,1,"dropdown","value",{items},"hint"
-			
+
+--[[
 	double_dialogs = {
 		info = { 0, 0, 3, 1, "label", label = "" },
 		{ 0, 1, 1, 1, "label", label = "预显:" },
@@ -51,6 +48,7 @@ UI_conf = {
 		function(subs,sel,config) kara_parse_double(subs, sel, config) end,
 		function(subs,sel,config) aegisub.cancel() end
 	},
+--]]
 	
 	swift_dialogs = {
 		info = { 0, 0, 1, 1, "label", label = "请选择功能：\nCreate：根据实际字幕内容在特效字段生成按音节分割的文本；\nParse：根据特效字段的音节分割文本修改字幕内容。\nClean：清除特效字段。"  }
@@ -119,7 +117,7 @@ function entry(subs, sel)
 	show_dialog(subs, sel, 'main_dialogs', 'main_buttons', 'main_commands', '')
 end
 --]]
-
+--[[
 function kara_parse_double(subs, sel, config)		
 	local flag = {
 		[1] = 0,
@@ -177,7 +175,7 @@ function kara_parse_double(subs, sel, config)
 		aegisub.debug.out(0, "没有进行修改")
 	end
 end
-
+--]]
 function kara_parse_wchar_single(subp, tag)
 	
 end
@@ -930,12 +928,13 @@ TLL_macros = {
 		entry = function(subs,sel,config) show_dialog(subs, sel, 'sylmov_dialogs', 'sylmov_buttons', 'sylmov_commands') end,
 		validation = false
 	},
-	{
+--[[	{
 		script_name = "双行字幕",
 		script_description = "创建双行卡拉OK字幕",
 		entry = function(subs,sel,config) show_dialog(subs, sel, 'double_dialogs', 'double_buttons', 'double_commands') end,
 		validation = selection_validation
 	},
+--]]
 	{
 		script_name = "音节切换",
 		script_description = "生成音节文本或根据音节文本修改字幕",
