@@ -81,14 +81,30 @@ UI_conf = {
 		{ 2, 0, 1, 1, "label", label = "接续号" },
 		{ 3, 0, 1, 1, "label", label = "同步号" },
 		{ 4, 0, 3, 1, "label", label = "字幕样式" },
-		{ 7, 0, 1, 1, "label", label = "字幕文本" },
+		{ 7, 0, 2, 1, "label", label = "字幕文本" },
 	},
-	tlorg_ctrl_buttons = {"Apply", "Last Page", "Next Page", "Refresh", "Back to Subtitle Mode", "Save & Back to Subtitle Mode", "Syllable Mode", "Cancel" },
+	tlorg_ctrl_dialogs_2 = {
+		{ 0, 0, 1, 1, "label", label = "关键" },
+		{ 1, 0, 1, 1, "label", label = "编号" },
+		{ 2, 0, 1, 1, "label", label = "同步号" },
+		{ 3, 0, 2, 1, "label", label = "字幕文本" },
+	},
+	tlorg_ctrl_buttons = {"Apply", "Last Page", "Next Page", "Execute Sync and Clasp", "Back to Subtitle Mode", "Save and Back to Subtitle Mode", "Syllable Mode", "Refresh", "Cancel" },
 	tlorg_ctrl_commands = function(subs,sel,button,config) return button, config end,
 }
 
-function kara_parse_wchar_single(subp, tag)
-	
+function timeline_wchar_single(subp, tag)
+	local duration = subp.end_time - subp.start_time
+	local wtable = trans_wchar2table(subp["syllables"][1]["text"])
+	local syls = subp.syllables
+	local intv = math.floor(duration / #wtable)
+	for i = 1, #wtable do
+		syls[i] = {
+			duration = intv,
+			tag = tag,
+			text = wtable[i]
+		}
+	end
 end
 
 function kara_parse_wchar(subs, sel, config)--宽字符自动区隔音节
@@ -96,23 +112,13 @@ function kara_parse_wchar(subs, sel, config)--宽字符自动区隔音节
 	local TLSubs = read_syllables(subs, sel)
 	--write_syllables(subs, sel, tp)
 	aegisub.progress.task("Processing...")
-	aegisub.progress.set(0)
 	for i = 1, #TLSubs do
 		local subp = TLSubs[i]
 		if #subp["syllables"] == 1 and subp["syllables"][1].duration == 0 then--只有在没有音节存在时才执行
-			local sw = wchar2table(subp.text)
-			local interval = math.floor((subp.end_time - subp.start_time) / #sw)--计算平均间隔时间
-			for k,subsw in pairs(sw) do			--写入全局函数
-				TLSubs[i]["syllables"][k] = {
-					duration = interval,
-					tag = config.tag,
-					text = subsw
-				}
-			end
+			timeline_wchar_single(subp, config.tag)
 		end
-		aegisub.progress.set(1 / #TLSubs)
 	end
-	write_syllables(subs, sel, TLSubs)
+	 write_syllables(subs, sel, TLSubs)
 end
 
 function kara_strip_tags(subs, sel, config)--去除卡拉OK标签但是维持原本的start_time和end_time
@@ -202,10 +208,10 @@ function timeline_org_main(subs, sel)
 	local dtype = 1
 	local loop = 0
 	local show_start, show_end, show_max = 1, 0, 20
-	local osettings = {sync = true, sync_syls = false, clasp = true, clasp_left = 1000, clasp_right = 1000}
+	local osettings = {sync = false, sync_syls = false, sync_wchar = false, clasp = false, clasp_left = 1000, clasp_right = 1000}
 	local oheadstyle, ornum = headstyle, rnum
 	local showbuttons = util.deep_copy(UI_conf["tlorg_ctrl_buttons"])
-	while(button and button ~= showbuttons[1] and button ~= showbuttons[8]) do--用循环达到持续显示窗体效果
+	while(button and button ~= showbuttons[1] and button ~= showbuttons[9]) do--用循环达到持续显示窗体效果
 		loop = loop + 1
 		--起止行数的修正
 		if #TLSubs <= show_max then
@@ -222,21 +228,44 @@ function timeline_org_main(subs, sel)
 		end		
 		--显示窗体
 		button, config = timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_end, dtype, styles, headstyle, rmax, rnum, cmax, inum, osettings)
-		--读关键句和R数，如果不存在值（窗体改变）则不读取，以免读到nil
-		if config.headstyle and config.rnum then
-			headstyle, rnum = config.headstyle, tonumber(config.rnum)	
-		end		
-		--自动重置
-		if headstyle ~= oheadstyle or rnum ~= ornum then--自动重置设定有修改时，忽略其他输入			
-			TLRels = timeline_create_rels(TLSubs, headstyle, styles)--生成关键句关系表
-			timeline_create_rows(TLSubs, TLRels, styles, headstyle, rnum)--生成行关系
-			cmax = timeline_create_columns(TLSubs, TLRels, styles)--生成列关系
-		--手动重生成
-		else
-			timeline_edit_rels(TLRels, config, show_start, show_end)
+		--读同步和接续的参数，如果不存在值（窗体改变）则不读取，以免读到nil
+		if config.sync then
+			osettings.sync, osettings.sync_syls, osettings.sync_wchar = config.sync, config.sync_syls, config.sync_wchar
 		end
-		--更新样式和文本
-		timeline_edit_texts(TLSubs, TLRels, show_start, show_end, button, config)
+		if config.clasp then
+			osettings.clasp, osettings.clasp_left, osettings.clasp_right = config.clasp, config.clasp_left, config.clasp_right
+		end
+		--更新关系表
+		if dtype == 1 then--从第二界面跳回来时不修改关系表
+			--读关键句和R数，如果不存在值（窗体改变）则不读取，以免读到nil
+			if config.headstyle and config.rnum then
+				headstyle, rnum = config.headstyle, tonumber(config.rnum)	
+			end		
+			--1a.自动重置
+			if headstyle ~= oheadstyle or rnum ~= ornum then--自动重置设定有修改时，忽略其他输入			
+				TLRels = timeline_create_rels(TLSubs, headstyle, styles)--生成关键句关系表
+				timeline_create_rows(TLSubs, TLRels, styles, headstyle, rnum)--生成行关系
+				cmax = timeline_create_columns(TLSubs, TLRels, styles)--生成列关系
+			--1b.手动重生成
+			else
+				timeline_edit_rels(TLRels, config, show_start, show_end)
+			end
+			--2.更新样式和文本
+			timeline_edit_texts(TLSubs, show_start, show_end, button, config)
+			--3.执行同步和接续命令，之后清空选项
+			if button == showbuttons[4] or button == showbuttons[7] then
+				if config.clasp then timeline_clasp(TLSubs, TLRels, config, inum) end
+				osettings.clasp, osettings.clasp_left, osettings.clasp_right = false, 0, 0
+			end
+			if button == showbuttons[4] or button == showbuttons[7] then
+				if config.sync then timeline_sync_rows(TLSubs, TLRels, config) end
+				osettings.sync, osettings.sync_syls, osettings.sync_wchar = false, false, false
+			end
+		elseif dtype == 2 then
+			--从第二窗口得到音节改变情况
+			timeline_get_syl_change(TLSubs, show_start, show_end, config)
+		end
+		
 		--调整显示模式
 		if button == showbuttons[7] then
 			dtype = 2
@@ -245,17 +274,8 @@ function timeline_org_main(subs, sel)
 		end
 		--调整起止行数
 		if button == showbuttons[2] then show_start = show_start - show_max end
-		if button == showbuttons[3] then show_start = show_start + show_max end
-		--读同步和接续的参数，如果不存在值（窗体改变）则不读取，以免读到nil
-		if config.sync then
-			osettings.sync, osettings.sync_syls = config.sync, config.sync_syls
-		end
-		if config.clasp then
-			osettings.clasp, osettings.clasp_left, osettings.clasp_right = config.clasp, config.clasp_left, config.clasp_right
-		end
+		if button == showbuttons[3] then show_start = show_start + show_max end		
 		oheadstyle, ornum = headstyle, rnum
-		--button, config = rst[1], rst[2]
-		--aegisub.debug.out(0, button)
 		--回避死循环
 		if loop > 1000 then
 			aegisub.debug.out(0, "Error: Endless Loop")
@@ -263,8 +283,6 @@ function timeline_org_main(subs, sel)
 		end
 	end
 	if button == showbuttons[1] then
-		if config.clasp then timeline_clasp(TLSubs, TLRels, config, inum) end
-		if config.sync then timeline_sync_rows(TLSubs, TLRels, config) end			
 		write_syllables(subs, sel, TLSubs)
 	end	
 end
@@ -282,10 +300,8 @@ function timeline_org_prepare(TLSubs)
 		if #subp["syllables"] > 1 then
 			if headstyle == "" then headstyle = subp.style end--第一个音节数多于1的句为关键句
 			local syls = subp["syllables"]
-			subp.text_table = syls2table(syls)
-		else
-			subp.text_table = wchar2table(subp.text)
 		end		
+		subp["syl_table"] = trans_syls2table(subp["syllables"])
 	end
 	local styles = table_keys(styles)
 	if headstyle == "" then headstyle = styles[1] end--前面没选出关键句的情况
@@ -326,6 +342,19 @@ function timeline_create_rows(TLSubs, TLRels, styles, headstyle, rnum)
 	end
 end
 
+--以其一为源，更新text, syl_table和syllables的其余两个
+--text: 字幕原始台词，包含效果
+--syllables：parse_karaoke_data生成的音节表
+function timeline_TTS(subp, tp)
+	if tp == "text" then
+		subp.syllables = aegisub.parse_karaoke_data(util.deep_copy(subp))
+		subp.syl_table = trans_syls2table(subp.syllables)
+	elseif tp == "syllables" then
+		subp.text = trans_syls2text(subp.syllables)
+		subp.syl_table = trans_syls2table(subp.syllables)
+	end		
+end
+
 function timeline_sync_rows(TLSubs, TLRels, config)
 	local heads = {}
 	for i = 1, #TLSubs do--第一遍循环，读全部关键句的起止时间和音节
@@ -339,17 +368,27 @@ function timeline_sync_rows(TLSubs, TLRels, config)
 		local subp = TLSubs[i]
 		local relp = TLRels[i]
 		local hd = heads[relp["C"]]
-		subp.start_time = hd["start_time"]
-		subp.end_time = hd["end_time"]
-		if config.sync_syls then
-			timeline_sync_syls(subp["syllables"], hd["syllables"])
-		end
+		if not relp["R"] and hd then
+			subp.start_time = hd["start_time"]
+			subp.end_time = hd["end_time"]
+			if config.sync_syls then
+				local tp = nil
+				if config.sync_wchar then tp = 1 end
+				timeline_sync_syls(subp, hd, tp)
+			end
+			timeline_TTS(subp, "syllables") --刷新text	
+		end	
 	end
 end
 
-function timeline_sync_syls(syls1, syls2)--使syls1的音节与syls2完全相同
+function timeline_sync_syls(subp1, subp2, tp)--使subp1的音节与subp2完全相同，tp=0或nil为默认，tp=1为先划分syls1音节
+	local syls1, syls2 = subp1.syllables, subp2.syllables
 	local snum = math.max(#syls1, #syls2)
-	if #syls1 > 1 and #syls2 > 1 then
+	if (#syls1 > 1 or tp == 1) and #syls2 > 1 then
+		if #syls1 == 1 and tp == 1 then
+			timeline_wchar_single(subp1, "\\k")
+			timeline_TTS(subp1, "syllables")
+		end
 		for i = 1, snum do
 			if i > #syls1 then
 				syls1[i] = util.copy(syls2[i])
@@ -357,9 +396,13 @@ function timeline_sync_syls(syls1, syls2)--使syls1的音节与syls2完全相同
 			elseif i > #syls2 then
 				syls1[i]["duration"] = 0
 			else
-				local otext = syls1[i]["text"]
-				syls1[i] = util.copy(syls2[i])
-				syls1[i]["text"] = otext
+				if syls2[i]["text"] ~= "" then
+					local otext = syls1[i]["text"]
+					syls1[i] = util.copy(syls2[i])
+					syls1[i]["text"] = otext
+				else
+					table.insert(syls1, i,  empty_syllable(syls2[i]["duration"]))
+				end				
 			end		
 		end
 	end	
@@ -420,6 +463,7 @@ function timeline_clasp(TLSubs, TLRels, config, inum)--使接续句前后连接
 				aegisub.debug.out(1,string.format("检测到第 %s 行与第 %s 行存在时间轴冲突", rj1["no"] - inum + 1, rj2["no"] - inum + 1))
 				aegisub.cancel()
 			end
+			timeline_TTS(rj1, "syllables") --刷新text和
 		end
 	end
 end
@@ -443,20 +487,73 @@ function timeline_create_columns(TLSubs, TLRels, styles)--生成列关系，同�
 	return cmax
 end
 
+--从第二窗口得到单行改变情况
+function timeline_get_syl_change(TLSubs, show_start, show_end, config)
+	local sylmax = timeline_sylmax(TLSubs, show_start, show_end)
+	for i = show_start, show_end do
+		subp = TLSubs[i]
+		timeline_get_syl_change_single(subp, config, i, sylmax)
+	end
+end
+
+function timeline_get_syl_change_single(subp, config, i, sylmax)
+	local sno = 0
+	local offset = 0
+	for s = 1, sylmax - 1 do
+		if config["chkd_" .. i .. "_" .. s] then
+			sno = s
+			break
+		end
+	end
+	local syls = subp.syllables
+	if config["lm_" .. i] and not config["rm_" .. i] then offset = -1 end
+	if config["rm_" .. i] and not config["lm_" .. i] then offset = 1 end
+	if sno > 0 and offset ~= 0 then
+		if offset == -1 then
+			syls[sno]["text"] = syls[sno]["text"] .. syls[sno + 1]["text"]
+			syls[sno + 1]["text"] = ""
+			if sno < #syls - 1 then
+				for i = sno + 1, #syls - 1 do
+					syls[i]["text"] = syls[i + 1]["text"]
+					syls[i + 1]["text"] = ""
+				end
+			end			
+		elseif offset == 1 then
+			if 1 then
+				for i = #syls, sno + 2, -1 do
+					syls[i]["text"] = syls[i - 1]["text"]
+					syls[i - 1]["text"] = ""
+				end
+			end
+		end
+	end
+	timeline_TTS(subp, "syllables")
+end
+
+function timeline_sylmax(TLSubs, show_start, show_end)
+	local sylmax = 0
+	for i = show_start, show_end do--先将关键句按C值归类，同时也记录最多的音节数
+		if #TLSubs[i]["syllables"] > sylmax then sylmax = #TLSubs[i]["syllables"] end
+	end
+	return sylmax
+end
+
 function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_end, dtype, styles, headstyle, rmax, rnum, cmax, inum, osettings)
-	local showlines = util.deep_copy(UI_conf["tlorg_ctrl_dialogs"])
+	local showlines = {}
 	local showbuttons = util.deep_copy(UI_conf["tlorg_ctrl_buttons"])
 	local lnum = 1
 	--tlorg_ctrl_buttons = {"Apply", "Last Page", "Next Page", "Refresh", "Back to Subtitle Mode", "Save & Back to Subtitle Mode", "Syllable Mode", "Cancel" },
 	if show_end >= #TLSubs then showbuttons[3] = nil end
 	if show_start <= 1 then showbuttons[2] = nil end
 	if dtype == 1 then showbuttons[5], showbuttons[6] = nil, nil
-	elseif dtype == 2 then showbuttons[7] = nil end
+	elseif dtype == 2 then showbuttons[4], showbuttons[7] = nil, nil end
 	--if show_end < #TLSubs then table.insert(showbuttons, 2, "Next Page") end
 	--if show_start > 1 then table.insert(showbuttons, 2, "Last Page") end
 	
 	aegisub.progress.task("Creating Dialog...Please Wait")
+	--字幕句界面
 	if dtype == 1 then
+		showlines = util.deep_copy(UI_conf["tlorg_ctrl_dialogs"])
 		for i = show_start, show_end do
 			local subp = TLSubs[i]
 			local relp = TLRels[i]
@@ -473,7 +570,7 @@ function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_en
 				{ 0, lnum, 1, 1, "checkbox", name = "head_" .. i, value = hv },
 				{ 1, lnum, 1, 1, "label", label = subp["no"] - inum + 1 },--需要修改y
 				{ 2, lnum, 1, 1, "intedit", name = "row_" .. i,  value = rv, min = 0, max = rmax },
-				{ 3, lnum, 1, 1, "intedit", name = "col_" .. i,  value = relp["C"], min = 1, max = cmax },
+				{ 3, lnum, 1, 1, "intedit", name = "col_" .. i,  value = relp["C"], min = 1, max = 99 },
 				{ 4, lnum, 3, 1, "edit", name = "style_" .. i, text = subp.style },
 				{ 7, lnum, 15, 1, "edit", name = "text_" .. i, text = subp.text }		
 			}	
@@ -486,18 +583,22 @@ function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_en
 			{ 3, lnum + 1, 1, 1, "intedit", name = "clasp_left",  value = osettings.clasp_left, min = 0, max = 20000 },
 			{ 4, lnum + 1, 1, 1, "intedit", name = "clasp_right",  value = osettings.clasp_right, min = 0, max = 20000 },
 			{ 7, lnum + 1, 1, 1, "label", label = "自动重设参数： 接续段数" },--需要修改y
-			{ 8, lnum + 1, 1, 1, "dropdown", name = "rnum", items = table_make_array(rmax), value = rnum },--需要修改y、items、value
+			{ 8, lnum + 1, 1, 1, "dropdown", name = "rnum", items = table_maken(rmax), value = rnum },--需要修改y、items、value
 			{ 9, lnum + 1, 1, 1, "label", label = "  关键样式" },--需要修改y
 			{ 10, lnum + 1, 1, 1, "dropdown", name = "headstyle", items = styles, value = headstyle },--需要修改y、name、items、value
 			{ 11, lnum + 1, 1, 1, "label", label = " 改动自动重设参数将忽略一切手动修改" },--需要修改y
 			{ 1, lnum + 2, 1, 1, "label", label = "同步" },--需要修改y
 			{ 2, lnum + 2, 1, 1, "checkbox", name = "sync", value = osettings.sync, label = "时间同步  " },
-			{ 3, lnum + 2, 1, 1, "checkbox", name = "sync_syls", value = osettings.sync_syls, label = "音节同步  " }
+			{ 3, lnum + 2, 1, 1, "checkbox", name = "sync_syls", value = osettings.sync_syls, label = "音节同步  " },
+			{ 4, lnum + 2, 1, 1, "checkbox", name = "sync_wchar", value = osettings.sync_wchar, label = "宽字节转音节  " }
 		}
 		table_merge(showlines, settingline)
 		lnum = lnum + 3
+	--歌词音节界面
 	elseif dtype == 2 then
+		showlines = util.deep_copy(UI_conf["tlorg_ctrl_dialogs_2"])
 		local csort = {}
+		local sylmax = timeline_sylmax(TLSubs, show_start, show_end)
 		for i = show_start, show_end do--先将关键句按C值归类
 			local relp = TLRels[i]
 			if not csort[relp["C"]] then csort[relp["C"]] = {} end
@@ -521,17 +622,37 @@ function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_en
 					rv = 0
 				end
 				local newline = {
-					{ 0, lnum, 1, 1, "checkbox", name = "head_" .. i, value = hv },
+					{ 0, lnum, 1, 1, "label", label = "" },
 					{ 1, lnum, 1, 1, "label", label = subp["no"] - inum + 1 },--需要修改y
-					{ 2, lnum, 1, 1, "intedit", name = "row_" .. i,  value = rv, min = 0, max = rmax },
-					{ 3, lnum, 1, 1, "intedit", name = "col_" .. i,  value = relp["C"], min = 1, max = cmax },
-					{ 4, lnum, 3, 1, "edit", name = "style_" .. i, text = subp.style }			
+					{ 2, lnum, 1, 1, "label", label =  "[" .. relp["C"] .. "]" },
 				}	
-				if hv then
-					table.insert(newline, { 7, lnum, 15, 1, "label", label = table.concat(subp.text_table, ' ') })
-				else
-					table.insert(newline, { 7, lnum, 15, 1, "edit", name = "text2_" .. i, text = table.concat(subp.text_table, ' ') })
-				end	
+				if hv then newline[1]["label"] = "[√]" end
+				local syls_texts = subp.syl_table
+				local xmax = 3
+				for s = 1, sylmax do
+					if hv then					
+						if syls_texts[s] == "" then
+							table.insert(newline, { 2 + s * 2 - 1, lnum, 1, 1, "label", label = "--" })
+						else
+							table.insert(newline, { 2 + s * 2 - 1, lnum, 1, 1, "label", label = syls_texts[s] })
+						end
+					else
+						if syls_texts[s] == "" then
+							table.insert(newline, { 2 + s * 2 - 1, lnum, 1, 1, "label", label = "--" })
+						else
+							table.insert(newline, { 2 + s * 2 - 1, lnum, 1, 1, "label", label = syls_texts[s] })
+						end		
+						if s ~= sylmax then 				
+							table.insert(newline, { 2 + s * 2, lnum, 1, 1, "checkbox", name = "chkd_" .. i .. "_" .. s, value = false})
+						end
+					end
+					xmax = xmax + 2
+				end
+				if not hv then
+					table.insert(newline, { xmax, lnum, 1, 1, "checkbox", name = "lm_" .. i, label = "左合并"})
+					table.insert(newline, { xmax + 2, lnum, 1, 1, "checkbox", name = "rm_" .. i, label = "右延展"})
+				end
+				
 				table_merge(showlines, newline)
 				lnum = lnum + 1
 			end
@@ -558,49 +679,19 @@ function timeline_edit_rels(TLRels, config, show_start, show_end)
 end
 
 --更新样式、文本和音节表
-function timeline_edit_texts(TLSubs, TLRels, show_start, show_end, button, config)
+function timeline_edit_texts(TLSubs, show_start, show_end, button, config)
 	local showbuttons = util.deep_copy(UI_conf["tlorg_ctrl_buttons"])
 	for i = show_start, show_end do
 		local subp = TLSubs[i]
 		if config["style_"..i] then subp.style = config["style_"..i] end
 		if config["text_"..i] then
 			subp.text = config["text_"..i]
-			local syls = util.deep_copy(subp)
-			aegisub.parse_karaoke_data(syls)
-			subp.syllables = syls
-			if #syls > 1 then subp.text_table = syls2table(syls)
-			else subp.text_table =  wchar2table(subp.text) end
-		end
-		if config["text2_"..i] and button == showbuttons[6] then
-			--第一步，更新text_table字段
-			local text2 = config["text2_"..i]
-			local tblp = subp.text_table
-			tblp =  LuaSplit(text2, ' ')
-			--aegisub.debug.out(0, table.concat(subp.text_table, ' '))
-			--第二步，更新syllables字段
-			local syls = subp["syllables"]
-			local jnum = math.max(#tblp, #syls)
-			for j = 1, jnum do
-				if tblp[j] and syls[j] then --下标都存在
-					syls[j]["text"] = tblp[j]
-				elseif tblp[j] then--现有音节少于修改音节，用1长度音节补齐
-					syls[j] = {
-						tag = syls[1]["tag"],
-						duration = 1,
-						text = tblp[j]
-					}
-				else --现有音节多于修改音节，用空字符补齐
-					syls[j]["text"] = ""
-				end
-			end
-			--第三部，更新text字段
-			subp.text = syls2text(syls)
+			timeline_TTS(subp, "text")
 		end
 	end
 end
 
---[[
-function timeline_org_update(TLSubs, TLRels)
+function timeline_write_rels(TLSubs, TLRels)
 	for i = 1, #TLSubs do
 		local subp = TLSubs[i]
 		if TLRels[i] and TLRels[i] ~= {} then
@@ -609,7 +700,6 @@ function timeline_org_update(TLSubs, TLRels)
 	end
 	return TLSubs
 end
-]]--
 
 --将所有行的起始和结束时间写入effect列
 --[[
@@ -793,14 +883,12 @@ end
 --写音节函数：把音节数据内容写回选择的行，同时也会更新text属性；tp默认为false，tp为1表示强制写入
 function write_syllables(subs, sel, cont, tp)
 	local sublist = cont
-	aegisub.progress.task("Writing Lines...")
-	aegisub.progress.set(0)
 	for i = 1, #sublist do
 		local syls = sublist[i]["syllables"]
 		local sub = subs[sel[i]]
 		local txtp = ""
 		if tp == 1 or not(#syls == 1 and syls[1].duration == 0) then
-			txtp = syls2text(syls)
+			txtp = trans_syls2text(syls)
 			--[[for j = 1, #syls do
 				txtp = txtp..string.format("{%s%d}%s", syls[j].tag, syls[j].duration/10, syls[j].text)
 			end--]]
@@ -814,7 +902,6 @@ function write_syllables(subs, sel, cont, tp)
 		sub.style = sublist[i]["style"]
 		sub.effect = sublist[i]["effect"]
 		subs[sel[i]] = sub
-		aegisub.progress.set(i / #sublist * 100)
 	end
 end
 
@@ -887,7 +974,7 @@ function table_unserialize(str)
   return tbl
 end
 
-function table_make_array(n)
+function table_maken(n)
 	local rst = {}
 	for i = 1, n do
 		table.insert(rst, i)
@@ -938,14 +1025,6 @@ function table_merge(tbl1, tbl2)
 	return tbl1
 end
 
-function array_plus(tbl1, tbl2)
-	for k, v in ipairs(tbl2) do
-		table.insert(tbl1, v)
-	end
-	return tbl1
-end
-
-
 function table2array(tbl)
 	local arr = {}
 	for k, v in pairs(tbl) do
@@ -955,7 +1034,7 @@ function table2array(tbl)
 end
 
 
-function syls2table(syls)
+function trans_syls2table(syls)
 	local tbl = {}
 	for i = 1, #syls do
 		table.insert(tbl, syls[i]["text"])
@@ -963,7 +1042,7 @@ function syls2table(syls)
 	return tbl
 end
 
-function syls2text(syls)
+function trans_syls2text(syls)
 	local text = ""
 	for i = 1, #syls do
 		text = text..string.format("{%s%d}%s", syls[i].tag, syls[i].duration/10, syls[i].text)
@@ -971,7 +1050,7 @@ function syls2text(syls)
 	return text
 end
 
-function wchar2table(str)
+function trans_wchar2table(str)
 	local sw0 = ""
 	local sw = {}
 	local length = unicode.len(str)
