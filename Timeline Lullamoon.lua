@@ -468,12 +468,17 @@ function timeline_clasp(TLSubs, TLRels, config, inum)--使接续句前后连接
 			--前移预判			
 			if j > 1 then
 				rj0 = rlist[j - 1] 
+				
 				--冲突1：前移以后，本句起始与前句结束冲突，这时本句从前句结束时间开始
 				if rj1["start_time"] - t_left < rj0["end_time"] then
 					t_left = rj1["start_time"] - rj0["end_time"]
 				end
 			end
 			--前移
+			if rj1["start_time"] - t_left < 0 then
+				echo(string.format("错误： 检测到第 %s 行前移后起始时间小于0", rj1["no"] - inum + 1))
+				aegisub.cancel()
+			end
 			rj1["start_time"] = rj1["start_time"] - t_left
 			--后移预判
 			if j < #rlist then				
@@ -499,7 +504,7 @@ function timeline_clasp(TLSubs, TLRels, config, inum)--使接续句前后连接
 				local syl = empty_syllable(t_right)
 				table.insert(rj1["syllables"], syl)
 			else--这里是本句结束本来就比后句起始要后的情况，暂时出错退出
-				aegisub.debug.out(1,string.format("检测到第 %s 行与第 %s 行存在时间轴冲突", rj1["no"] - inum + 1, rj2["no"] - inum + 1))
+				echo(string.format("错误： 检测到第 %s 行与第 %s 行存在时间轴冲突", rj1["no"] - inum + 1, rj2["no"] - inum + 1))
 				aegisub.cancel()
 			end
 			timeline_TTS(rj1, "syllables") --刷新text和
@@ -1145,6 +1150,7 @@ function LuaSplit(str,split)
 end 
 
 function echo(str)
+	aegisub.progress.task("Error")
 	aegisub.log(0, str)
 end
  
