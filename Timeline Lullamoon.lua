@@ -17,7 +17,7 @@ as the name is changed.
 
 --[[
 	Author: Yoshiko_G
-	Special Thanks to: TNBi, DracoRunan, ruzx007878
+	Special Thanks to: TNBi, DracoRunan, ruzx007878, Rogersystop
 --]]
 
 script_name = "TimeLine Lullamoon"
@@ -31,7 +31,7 @@ util = require'aegisub.util'
 unicode = require 'aegisub.unicode'
 
 UI_conf = {
-	
+	--[[
 	swift_dialogs = {
 		info = { 0, 0, 1, 1, "label", label = "请选择功能：\nCreate：根据实际字幕内容在特效字段生成按音节分割的文本；\nParse：根据特效字段的音节分割文本修改字幕内容。\nClean：清除特效字段。"  }
 	},
@@ -41,7 +41,7 @@ UI_conf = {
 		function(subs,sel,config) kara_swift(subs, sel, 1) end,
 		function(subs,sel,config) kara_swift(subs, sel, 2) end,
 		function(subs,sel,config) aegisub.cancel() end
-	},
+	},--]]
 	
 	wchar_dialogs = {
 		info = { 0, 0, 1, 1, "label", label = "标签类型" },
@@ -59,7 +59,7 @@ UI_conf = {
 	},
 	strip_buttons = {"OK", "Cancel"},
 	strip_commands = {
-		function(subs,sel,config) kara_strip_tags(subs, sel, config) end,
+		function(subs,sel,config) kara_strip_holder_syls(subs, sel, config) end,
 		function(subs,sel,config) aegisub.cancel() end,
 	},
 	
@@ -81,15 +81,15 @@ UI_conf = {
 		{ 2, 0, 1, 1, "label", label = "接续号" },
 		{ 3, 0, 1, 1, "label", label = "同步号" },
 		{ 4, 0, 3, 1, "label", label = "字幕样式" },
-		{ 7, 0, 2, 1, "label", label = "字幕文本" },
+		{ 7, 0, 3, 1, "label", label = "字幕文本" },
 	},
 	tlorg_ctrl_dialogs_2 = {
 		{ 0, 0, 1, 1, "label", label = "关键" },
 		{ 1, 0, 1, 1, "label", label = "编号" },
 		{ 2, 0, 1, 1, "label", label = "同步号" },
-		{ 3, 0, 2, 1, "label", label = "字幕文本" },
+		{ 3, 0, 3, 1, "label", label = "字幕文本" },
 	},
-	tlorg_ctrl_buttons = {"Apply", "Last Page", "Next Page", "Execute Sync and Clasp", "Back to Subtitle Mode", "Save and Back to Subtitle Mode", "Syllable Mode", "Refresh", "Cancel" },
+	tlorg_ctrl_buttons = {"Apply", "Last Page", "Next Page", "Execute Sync and Clasp", "Subtitle Mode", "Syllable Mode", "Switch", "Refresh", "Cancel" },
 	tlorg_ctrl_commands = function(subs,sel,button,config) return button, config end,
 }
 
@@ -121,7 +121,15 @@ function kara_parse_wchar(subs, sel, config)--宽字符自动区隔音节
 	 write_syllables(subs, sel, TLSubs)
 end
 
-function kara_strip_tags(subs, sel, config)--去除卡拉OK标签但是维持原本的start_time和end_time
+function kara_add_holder_syls(subs, sel)--给字幕所有空格加上{\k0}的标签
+	for i = 1, #sel do
+		local subp = subs[sel[i]]
+		subp.text = string.gsub(subp.text, "%s+", "{\\k0}%0")
+		subs[sel[i]] = subp
+	end
+end
+
+function kara_strip_holder_syls(subs, sel, config)--去除卡拉OK标签但是维持原本的start_time和end_time
 	local TLSubs = read_syllables(subs, sel)
 	for i = 1, #TLSubs do
 		local subp = TLSubs[i]
@@ -134,6 +142,17 @@ function kara_strip_tags(subs, sel, config)--去除卡拉OK标签但是维持原
 			subp.start_time = subp.start_time + syls[1].duration
 			table.remove(TLSubs[i]["syllables"],1)
 		end
+		if #syls > 1 then
+			for j = #syls, 2, -1 do
+				--echo(j..':['..syls[j].text..']->['..string.gsub(syls[j]["text"], "%s+", "").."]\n")
+				if syls[j]["duration"] == 0 then
+					syls[j-1]["text"] = syls[j-1]["text"] .. syls[j]["text"]
+					table.remove(TLSubs[i]["syllables"],j)
+				end
+			end
+		end
+		--此功能入口废弃
+		--[[
 		if config.allstrip then --清除剩余所有卡拉OK标签但是不修改时间
 			local syls_temp = ""
 			for j=1, #syls do
@@ -147,10 +166,11 @@ function kara_strip_tags(subs, sel, config)--去除卡拉OK标签但是维持原
 				}				
 			}
 		end
+		--]]
 	end
 	write_syllables(subs, sel, TLSubs)
 end
-
+--[=[
 function kara_swift(subs, sel, tp)
 	if tp == 0 then
 		for i = 1, #sel do
@@ -189,7 +209,7 @@ function kara_swift(subs, sel, tp)
 		end
 	end
 end
-
+--]=]
 --行间关系：
 --Head-关键句，认为关键句就是R有值的句子
 --column-同步列C，同标记的后句的起止时间和音节都跟关键句对齐
@@ -236,7 +256,7 @@ function timeline_org_main(subs, sel)
 			osettings.clasp, osettings.clasp_left, osettings.clasp_right = config.clasp, config.clasp_left, config.clasp_right
 		end
 		--更新关系表
-		if dtype == 1 then--从第二界面跳回来时不修改关系表
+		if dtype == 1 then--第二界面时不修改关系表
 			--读关键句和R数，如果不存在值（窗体改变）则不读取，以免读到nil
 			if config.headstyle and config.rnum then
 				headstyle, rnum = config.headstyle, tonumber(config.rnum)	
@@ -253,24 +273,27 @@ function timeline_org_main(subs, sel)
 			--2.更新样式和文本
 			timeline_edit_texts(TLSubs, show_start, show_end, button, config)
 			--3.执行同步和接续命令，之后清空选项
-			if button == showbuttons[4] or button == showbuttons[7] then
+			if button == showbuttons[4] or button == showbuttons[6] then
 				if config.clasp then timeline_clasp(TLSubs, TLRels, config, inum) end
 				osettings.clasp, osettings.clasp_left, osettings.clasp_right = false, 0, 0
 			end
-			if button == showbuttons[4] or button == showbuttons[7] then
+			if button == showbuttons[4] or button == showbuttons[6] then
 				if config.sync then timeline_sync_rows(TLSubs, TLRels, config) end
 				osettings.sync, osettings.sync_syls, osettings.sync_wchar = false, false, false
 			end
-		elseif dtype == 2 then
+		elseif dtype == 2 or dtype == 3 then
 			--从第二窗口得到音节改变情况
-			timeline_get_syl_change(TLSubs, show_start, show_end, config)
+			timeline_get_syl_change(TLSubs, TLRels, show_start, show_end, config, dtype)
 		end
 		
-		--调整显示模式
-		if button == showbuttons[7] then
+		--调整显示模式 1 通常  2 音节文本模式  3 音节对齐模式
+		if button == showbuttons[6] then
 			dtype = 2
-		elseif button == showbuttons[5] or button == showbuttons[6] then
+		elseif button == showbuttons[5] then
 			dtype = 1
+		elseif button == showbuttons[7] then
+			if dtype == 2 then dtype = 3
+			elseif dtype == 3 then dtype = 2 end
 		end
 		--调整起止行数
 		if button == showbuttons[2] then show_start = show_start - show_max end
@@ -309,7 +332,6 @@ function timeline_org_prepare(TLSubs)
 	return styles, headstyle
 end
 
---TODO: text与text2之间任意转换
 
 function timeline_create_rels(TLSubs, headstyle, styles)--生成关键句关系表，认为R即代表关键句
 	local TLRels = {}
@@ -382,28 +404,45 @@ function timeline_sync_rows(TLSubs, TLRels, config)
 end
 
 function timeline_sync_syls(subp1, subp2, tp)--使subp1的音节与subp2完全相同，tp=0或nil为默认，tp=1为先划分syls1音节
-	local syls1, syls2 = subp1.syllables, subp2.syllables
-	local snum = math.max(#syls1, #syls2)
+	local syls1, syls2 = subp1.syllables, util.deep_copy(subp2.syllables)
+	local ld, rd = 0, 0
 	if (#syls1 > 1 or tp == 1) and #syls2 > 1 then
 		if #syls1 == 1 and tp == 1 then
 			timeline_wchar_single(subp1, "\\k")
 			timeline_TTS(subp1, "syllables")
 		end
+		if syls1[1]["text"] == "" and syls1[1]["duration"] > 0 then--subp1第一个音节是占位符的情况
+			table.remove(syls1,1)
+		end
+		if syls2[1]["text"] == "" and syls2[1]["duration"] > 0 then--subp2第一个音节是占位符的情况
+			ld = syls2[1]["duration"]
+			table.remove(syls2,1)
+		end
+		if syls1[#syls1]["text"] == "" and syls1[#syls1]["duration"] > 0 then--subp1最后一个音节是占位符的情况
+			table.remove(syls1)
+		end	
+		if syls2[#syls2]["text"] == "" and syls2[#syls2]["duration"] > 0 then--subp2最后一个音节是占位符的情况
+			rd = syls2[#syls2]["duration"]
+			table.remove(syls2)
+		end		
+		local snum = math.max(#syls1, #syls2)
 		for i = 1, snum do
-			if i > #syls1 then
+			if i > #syls1 then--音节超过subp1，增加文本为空的音节
 				syls1[i] = util.copy(syls2[i])
 				syls1[i]["text"] = ""
-			elseif i > #syls2 then
+			elseif i > #syls2 then--音节超过subp2，把音节时间改为0
 				syls1[i]["duration"] = 0
-			else
-				if syls2[i]["text"] ~= "" then
-					local otext = syls1[i]["text"]
-					syls1[i] = util.copy(syls2[i])
-					syls1[i]["text"] = otext
-				else
-					table.insert(syls1, i,  empty_syllable(syls2[i]["duration"]))
-				end				
+			else--通常情况
+				local otext = syls1[i]["text"]
+				syls1[i] = util.copy(syls2[i])
+				syls1[i]["text"] = otext			
 			end		
+		end
+		if ld > 0 then
+			table.insert(syls1, 1, empty_syllable(ld))
+		end
+		if rd > 0 then
+			table.insert(syls1, empty_syllable(rd))
 		end
 	end	
 end
@@ -488,46 +527,61 @@ function timeline_create_columns(TLSubs, TLRels, styles)--生成列关系，同�
 end
 
 --从第二窗口得到单行改变情况
-function timeline_get_syl_change(TLSubs, show_start, show_end, config)
+function timeline_get_syl_change(TLSubs, TLRels, show_start, show_end, config, dtype)
 	local sylmax = timeline_sylmax(TLSubs, show_start, show_end)
 	for i = show_start, show_end do
 		subp = TLSubs[i]
-		timeline_get_syl_change_single(subp, config, i, sylmax)
+		if not TLRels[i]["R"] then
+			timeline_get_syl_change_single(subp, config, dtype, i, sylmax)
+		end
 	end
 end
 
-function timeline_get_syl_change_single(subp, config, i, sylmax)
-	local sno = 0
-	local offset = 0
-	for s = 1, sylmax - 1 do
-		if config["chkd_" .. i .. "_" .. s] then
-			sno = s
-			break
-		end
-	end
+function timeline_get_syl_change_single(subp, config, dtype, i, sylmax)
 	local syls = subp.syllables
-	if config["lm_" .. i] and not config["rm_" .. i] then offset = -1 end
-	if config["rm_" .. i] and not config["lm_" .. i] then offset = 1 end
-	if sno > 0 and offset ~= 0 then
-		if offset == -1 then
-			syls[sno]["text"] = syls[sno]["text"] .. syls[sno + 1]["text"]
-			syls[sno + 1]["text"] = ""
-			if sno < #syls - 1 then
-				for i = sno + 1, #syls - 1 do
-					syls[i]["text"] = syls[i + 1]["text"]
-					syls[i + 1]["text"] = ""
-				end
-			end			
-		elseif offset == 1 then
-			if 1 then
-				for i = #syls, sno + 2, -1 do
-					syls[i]["text"] = syls[i - 1]["text"]
-					syls[i - 1]["text"] = ""
-				end
+	local ttable = {}
+	if dtype == 2 then
+		if config["text2_" .. i] then
+			ttable = LuaSplit(config["text2_" .. i], ' ')
+		end
+	elseif dtype == 3 then
+		for s = 1, sylmax do
+			if config["syl_" .. i .. "_" .. s] then
+				ttable[s] = config["syl_" .. i .. "_" .. s]
 			end
 		end
 	end
-	timeline_TTS(subp, "syllables")
+	if #ttable > 0 then
+		local smax = math.max(#ttable, #syls)
+		for j = 1, smax do
+			if j <= #ttable and j <= #syls then
+				syls[j]["text"] = ttable[j]
+				--aegisub.log(0, 'update:'..ttable[j].."\n")
+			elseif j <= #ttable then
+				local flag_t = false
+				for x = j, #ttable do
+					if ttable[x] ~= "" then
+						flag_t = true
+						break
+					end
+				end
+				if flag_t then
+					syls[j] = {
+						tag = "\\k",
+						duration = 0,
+						text = ttable[j]
+					}
+				end
+				--aegisub.log(0, 'update table:'..ttable[j].."\n")
+			elseif j <= #syls then
+				syls[j]["text"] = ""
+				--aegisub.log(0, 'empty:'.."\n")
+			else
+				--aegisub.log(0, j..#ttable..#syls.."\n")
+			end
+		end
+		timeline_TTS(subp, "syllables")
+	end
 end
 
 function timeline_sylmax(TLSubs, show_start, show_end)
@@ -545,8 +599,8 @@ function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_en
 	--tlorg_ctrl_buttons = {"Apply", "Last Page", "Next Page", "Refresh", "Back to Subtitle Mode", "Save & Back to Subtitle Mode", "Syllable Mode", "Cancel" },
 	if show_end >= #TLSubs then showbuttons[3] = nil end
 	if show_start <= 1 then showbuttons[2] = nil end
-	if dtype == 1 then showbuttons[5], showbuttons[6] = nil, nil
-	elseif dtype == 2 then showbuttons[4], showbuttons[7] = nil, nil end
+	if dtype == 1 then showbuttons[5], showbuttons[7] = nil, nil
+	elseif dtype == 2 or dtype == 3 then showbuttons[4], showbuttons[6] = nil, nil end
 	--if show_end < #TLSubs then table.insert(showbuttons, 2, "Next Page") end
 	--if show_start > 1 then table.insert(showbuttons, 2, "Last Page") end
 	
@@ -595,7 +649,7 @@ function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_en
 		table_merge(showlines, settingline)
 		lnum = lnum + 3
 	--歌词音节界面
-	elseif dtype == 2 then
+	elseif dtype == 2 or dtype == 3 then
 		showlines = util.deep_copy(UI_conf["tlorg_ctrl_dialogs_2"])
 		local csort = {}
 		local sylmax = timeline_sylmax(TLSubs, show_start, show_end)
@@ -608,9 +662,9 @@ function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_en
 			local relp = TLRels[i]
 			if not relp["R"] then table.insert(csort[relp["C"]], i)	end
 		end
-		for c = 1, #csort do--按C值顺序分组显示
-			for c2 = 1, #csort[c] do
-				local i = csort[c][c2]
+		for _, v in pairs(csort) do--按C值顺序分组显示
+			for c2 = 1, #v do
+				local i = v[c2]
 				local subp = TLSubs[i]
 				local relp = TLRels[i]
 				local hv, cv
@@ -628,31 +682,26 @@ function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_en
 				}	
 				if hv then newline[1]["label"] = "[√]" end
 				local syls_texts = subp.syl_table
-				local xmax = 3
-				for s = 1, sylmax do
-					if hv then					
-						if syls_texts[s] == "" then
-							table.insert(newline, { 2 + s * 2 - 1, lnum, 1, 1, "label", label = "--" })
-						else
-							table.insert(newline, { 2 + s * 2 - 1, lnum, 1, 1, "label", label = syls_texts[s] })
-						end
+				if dtype == 2 then
+					if hv then
+						table.insert(newline, { 3, lnum, 1, 1, "label", label = table.concat(syls_texts, ' ') })
 					else
-						if syls_texts[s] == "" then
-							table.insert(newline, { 2 + s * 2 - 1, lnum, 1, 1, "label", label = "--" })
-						else
-							table.insert(newline, { 2 + s * 2 - 1, lnum, 1, 1, "label", label = syls_texts[s] })
-						end		
-						if s ~= sylmax then 				
-							table.insert(newline, { 2 + s * 2, lnum, 1, 1, "checkbox", name = "chkd_" .. i .. "_" .. s, value = false})
-						end
+						table.insert(newline, { 3, lnum, 1, 1, "edit", name = "text2_" .. i, text = table.concat(syls_texts, ' ') })
 					end
-					xmax = xmax + 2
+				else
+					for s = 1, sylmax do
+						if hv then					
+							if syls_texts[s] == "" then
+								table.insert(newline, { 2 + s, lnum, 1, 1, "label", label = "--" })
+							else
+								table.insert(newline, { 2 + s, lnum, 1, 1, "label", label = syls_texts[s] })
+							end
+						else
+							table.insert(newline, { 2 + s, lnum, 1, 1, "edit", name = "syl_" .. i .. "_" .. s, text = syls_texts[s] })	
+						end
+					end	
 				end
-				if not hv then
-					table.insert(newline, { xmax, lnum, 1, 1, "checkbox", name = "lm_" .. i, label = "左合并"})
-					table.insert(newline, { xmax + 2, lnum, 1, 1, "checkbox", name = "rm_" .. i, label = "右延展"})
-				end
-				
+							
 				table_merge(showlines, newline)
 				lnum = lnum + 1
 			end
@@ -1037,7 +1086,8 @@ end
 function trans_syls2table(syls)
 	local tbl = {}
 	for i = 1, #syls do
-		table.insert(tbl, syls[i]["text"])
+		local text = string.gsub(syls[i]["text"], ' ', '_')
+		table.insert(tbl, text)--转换的时候，音节里的空格替换成下划线，方便显示
 	end
 	return tbl
 end
@@ -1045,7 +1095,7 @@ end
 function trans_syls2text(syls)
 	local text = ""
 	for i = 1, #syls do
-		text = text..string.format("{%s%d}%s", syls[i].tag, syls[i].duration/10, syls[i].text)
+		text = text..string.format("{%s%d}%s", syls[i].tag, syls[i].duration/10, string.gsub(syls[i]["text"], '_', ' '))--下划线替换成空格，保证实际文本里不出现下划线
 	end
 	return text
 end
@@ -1094,6 +1144,9 @@ function LuaSplit(str,split)
     return lcSubStrTab  
 end 
 
+function echo(str)
+	aegisub.log(0, str)
+end
  
 --[[
 --底层函数：类似php的判否函数
@@ -1135,27 +1188,34 @@ TLL_macros = {
 		validation = false
 	},
 	{
+		script_name = "空格转占位音节",
+		script_description = "把所有空格换成长度为0的音节符号",
+		entry = function(subs,sel) kara_add_holder_syls(subs, sel) end,
+		validation = false
+	},
+	{
 		script_name = "清理占位音节",
-		script_description = "删除字幕前后的占位音节并保证时间点正确",
-		entry = function(subs,sel,config) show_dialog(subs, sel, 'strip_dialogs', 'strip_buttons', 'strip_commands') end,
+		script_description = "删除字幕前、中、后的占位音节并保证起止时间正确",
+		entry = function(subs,sel) kara_strip_holder_syls(subs, sel) end,
 		validation = false
 	},
 	{
 		script_name = "批量移动音节",
 		script_description = "不改变起止时间，统一移动所选行音节的分隔时间",
-		entry = function(subs,sel,config) show_dialog(subs, sel, 'sylmov_dialogs', 'sylmov_buttons', 'sylmov_commands') end,
+		entry = function(subs,sel) show_dialog(subs, sel, 'sylmov_dialogs', 'sylmov_buttons', 'sylmov_commands') end,
 		validation = false
 	},
-	{
+	
+--[[	{
 		script_name = "音节切换",
 		script_description = "生成音节文本或根据音节文本修改字幕",
 		entry = function(subs,sel,config) show_dialog(subs, sel, 'swift_dialogs', 'swift_buttons', 'swift_commands') end,
 		validation = false
-	},
+	},--]]
 	{
 		script_name = "时间轴魔术",
 		script_description = "通过设置时间轴同步和接续的关系，对字幕的起止时间和音节内容进行批量修改",
-		entry = function(subs,sel,config) timeline_org_main(subs, sel) end,
+		entry = function(subs,sel) timeline_org_main(subs, sel) end,
 		validation = false
 	},
 }
