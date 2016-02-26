@@ -81,15 +81,15 @@ UI_conf = {
 		{ 2, 0, 1, 1, "label", label = "接续号" },
 		{ 3, 0, 1, 1, "label", label = "同步号" },
 		{ 4, 0, 3, 1, "label", label = "字幕样式" },
-		{ 7, 0, 3, 1, "label", label = "字幕文本" },
+		{ 7, 0, 1, 1, "label", label = "字幕文本" },
 	},
 	tlorg_ctrl_dialogs_2 = {
 		{ 0, 0, 1, 1, "label", label = "关键" },
 		{ 1, 0, 1, 1, "label", label = "编号" },
 		{ 2, 0, 1, 1, "label", label = "同步号" },
-		{ 3, 0, 3, 1, "label", label = "字幕文本" },
+		{ 3, 0, 1, 1, "label", label = "字幕文本" },
 	},
-	tlorg_ctrl_buttons = {"Apply", "Last Page", "Next Page", "Execute Sync and Clasp", "Subtitle Mode", "Syllable Mode", "Switch", "Refresh", "Cancel" },
+	tlorg_ctrl_buttons = {"Apply", "Previous Page", "Next Page", "Execute Sync and Clasp", "Subtitle Mode", "Syllable Mode", "Switch", "Refresh", "Cancel" },
 	tlorg_ctrl_commands = function(subs,sel,button,config) return button, config end,
 }
 
@@ -689,9 +689,9 @@ function timeline_org_ctrl_dialog(subs, sel, TLSubs, TLRels, show_start, show_en
 				local syls_texts = subp.syl_table
 				if dtype == 2 then
 					if hv then
-						table.insert(newline, { 3, lnum, 1, 1, "label", label = table.concat(syls_texts, ' ') })
+						table.insert(newline, { 3, lnum, 20, 1, "label", label = table.concat(syls_texts, ' ') })
 					else
-						table.insert(newline, { 3, lnum, 1, 1, "edit", name = "text2_" .. i, text = table.concat(syls_texts, ' ') })
+						table.insert(newline, { 3, lnum, 20, 1, "edit", name = "text2_" .. i, text = table.concat(syls_texts, ' ') })
 					end
 				else
 					for s = 1, sylmax do
@@ -1229,4 +1229,4 @@ TLL_macros = {
 for i = 1, #TLL_macros do
 	aegisub.register_macro(script_name.." "..script_version.."/"..TLL_macros[i]["script_name"], TLL_macros[i]["script_description"], TLL_macros[i]["entry"], TLL_macros[i]["validation"])
 end
-aegisub.register_macro("测试", script_description, test2)
+--aegisub.register_macro("测试", script_description, test2)
